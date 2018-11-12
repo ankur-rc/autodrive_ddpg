@@ -97,7 +97,21 @@ def build_vae(batch_size, encoder, decoder):
     z = tf.keras.layers.Lambda(sample)([z_mean, z_log_var])
     _output = decoder(z)
 
-    return tf.keras.Model(inputs=x_input, outputs=_output)
+    reconstruction_loss = tf.keras.losses.mse(
+        tf.keras.backend.flatten(x_input), tf.keras.backend.flatten(_output))
+    reconstruction_loss *= INPUT_DIMS[0]*INPUT_DIMS[1]*INPUT_DIMS[2]
+
+    kl_loss = 1 + z_log_var - \
+        tf.keras.backend.square(z_mean) - tf.keras.backend.exp(z_log_var)
+    kl_loss = tf.keras.backend.sum(kl_loss, axis=-1)
+    kl_loss *= -0.5
+
+    vae_loss = tf.keras.backend.mean(reconstruction_loss + kl_loss)
+
+    vae = tf.keras.Model(inputs=x_input, outputs=_output, name="vae")
+    vae.add_loss(vae_loss)
+
+    return vae
 
 
 def main():
