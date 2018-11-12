@@ -4,6 +4,7 @@ Last Modified: Sunday November 11th 2018 1:13:05 pm
 Author: ankurrc
 '''
 import tensorflow as tf
+from layers import UpSampling2D_NN
 
 INPUT_DIMS = (160, 120, 3)
 LATENT_DIMS = 1024
@@ -79,7 +80,7 @@ def build_decoder(interim_dims):
     return tf.keras.Model(inputs=input, outputs=output, name="decoder")
 
 
-def sample(self, z_mean, z_logvar):
+def sample(z_mean, z_logvar):
 
     batch = tf.shape(z_mean)[0]
     dims = tf.shape(z_mean)[1]
@@ -90,11 +91,20 @@ def sample(self, z_mean, z_logvar):
 
 def main():
     encoder, dim = build_encoder()
-
     decoder = build_decoder(dim)
 
     encoder.summary()
     decoder.summary()
+
+    batch_size = 128
+
+    x_input = tf.keras.Input(batch_shape=(batch_size,) + INPUT_DIMS)
+
+    z_mean, z_log_var = encoder(x_input)
+    z = tf.keras.layers.Lambda(sample)([z_mean, z_log_var])
+    _output = decoder(z)
+
+    vae = tf.keras.Model(inputs=x_input, outputs=_output)
 
 
 if __name__ == "__main__":
