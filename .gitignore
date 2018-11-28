@@ -6,7 +6,7 @@ dataset/
 out
 node_modules
 *.pyc
-**/.vscode/.ropeproject/**
+**/.vscode/
 **/testFiles/**/.cache/**
 *.noseids
 .vscode-test
