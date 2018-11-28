@@ -22,8 +22,8 @@ class AutoencoderDataset(object):
             self._parse_function, num_parallel_calls=4)
         self.dataset = self.dataset.batch(batch_size)
         self.dataset = self.dataset.shuffle(1000)
-        self.dataset = self.dataset.repeat(epochs)
-        self.iterator = self.dataset.make_initializable_iterator()
+        self.dataset = self.dataset.repeat()
+        #self.iterator = self.dataset.make_initializable_iterator()
 
     def _parse_function(self, filename):
         """
@@ -36,3 +36,15 @@ class AutoencoderDataset(object):
         image_resized = tf.image.resize_images(image_decoded, self.size)
         image_resized = tf.image.convert_image_dtype(image_resized, tf.float32)
         return image_resized
+
+    def get_iterator(self):
+        """
+        https://stackoverflow.com/questions/50955798/keras-model-fit-with-tf-dataset-api-validation-data
+        """
+        iterator = self.dataset.make_one_shot_iterator()
+        next_val = iterator.get_next()
+
+        with tf.keras.backend.get_session().as_default() as sess:
+            while True:
+                inputs = sess.run(next_val)
+                return inputs
