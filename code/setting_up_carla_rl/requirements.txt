@@ -1,0 +1,7 @@
+numpy
+protobuf
+scipy
+pynput
+pygame
+pypng
+Pillow
