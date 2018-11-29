@@ -22,7 +22,7 @@ import random
 
 # enum of the available levels and their path
 class CarlaLevel(Enum):
-	TOWN1 = "/Game/Maps/Town01"
+	#TOWN1 = "/Game/Maps/Town01"
 	TOWN2 = "/Game/Maps/Town02"
 
 key_map = {
