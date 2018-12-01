@@ -4,13 +4,13 @@
 By Gokul NC <gokulnc@ymail.com> ( http://about.me/GokulNC )
 
 *******************************************************'''
-
-
-from carla_rl.carla_environment_wrapper import CarlaEnvironmentWrapper as CarlaEnv
 import numpy as np
 from pynput import keyboard
 from threading import Thread
 import time
+
+from carla_rl.carla_environment_wrapper import CarlaEnvironmentWrapper as CarlaEnv
+from carla_settings import get_carla_settings
 
 steering_strength = 0.5
 gas_strength = 1.0
@@ -64,8 +64,9 @@ def start_listen():
 config_file = "/media/ankurrc/new_volume/689_ece_rl/project/code/autodrive/mysettings.ini"
 
 print("Creating Environment..")
+settings = get_carla_settings()
 env = CarlaEnv(is_render_enabled=True, automatic_render=True, num_speedup_steps=10, run_offscreen=False,
-               cameras=['SceneFinal'], save_screens=False, settings_file=config_file)
+               cameras=['SceneFinal'], save_screens=False, carla_settings=settings, carla_server_settings=config_file)
 
 print("Resetting the environment..")
 env.reset()
@@ -103,7 +104,7 @@ try:
             done = True
 
         if done:
-            env.reset()
+            env.reset(settings=get_carla_settings())
             reset = False
             print("Total reward in episode:"+str(total_reward))
             total_reward = 0.0

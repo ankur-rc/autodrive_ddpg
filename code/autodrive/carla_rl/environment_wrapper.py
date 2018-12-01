@@ -148,13 +148,15 @@ class EnvironmentWrapper(object):
     def save_screenshots(self):
         pass
 
-    def reset(self, force_environment_reset=True):
+    def reset(self, force_environment_reset=True, settings=None):
         """
         Reset the environment and all the variable of the wrapper
         :param force_environment_reset: forces environment reset even when the game did not end
+        :param settings: A CarlaSettings object or settings string
         :return: A dictionary containing the state, reward, done flag and action
         """
-        self._restart_environment_episode(force_environment_reset)
+        self._restart_environment_episode(
+            force_environment_reset=force_environment_reset, settings=settings)
         self.last_episode_time = time.time()
         self.done = False
         self.episode_idx += 1

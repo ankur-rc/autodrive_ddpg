@@ -42,7 +42,8 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 					run_offscreen=False,
 					cameras=['SceneFinal'],
 					save_screens=False,
-					settings_file=None):
+					carla_settings=None,
+					carla_server_settings=None):
 
 		EnvironmentWrapper.__init__(self, is_render_enabled, save_screens)
 
@@ -61,7 +62,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		self.run_offscreen = run_offscreen
 		self.kill_when_connection_lost = True
 		# server configuration
-
+		self.carla_server_settings = carla_server_settings
 		self.port = get_open_port()
 		self.host = 'localhost'
 		# Why town2: https://github.com/carla-simulator/carla/issues/10#issuecomment-342483829
@@ -69,14 +70,15 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		self.map = CarlaLevel().get(self.level)
 
 		# client configuration
-		self.config = settings_file
-
-		if self.config:
+		if type(carla_settings) == str:
 			# load settings from file
-			with open(self.config, 'r') as fp:
+			with open(carla_settings, 'r') as fp:
 				self.settings = fp.read()
-		else:
-			self.settings = CarlaSettings()
+		elif type(carla_settings) == CarlaSettings:
+			self.settings = carla_settings
+			carla_settings = None
+		elif carla_settings == None:
+			raise Exception("Please load a CarlaSettings object or provide a path to a settings file.")
 
 		self.car_speed = 0.
 		self.max_speed = 35.
@@ -105,7 +107,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			create_dir(self.images_path)
 			self.rgb_img_path = self.images_path+"/rgb/"
 
-	def setup_client_and_server(self, reconnect_client_only=False):
+	def setup_client_and_server(self, reconnect_client_only=False, settings=None):
 		# open the server
 		if not reconnect_client_only:
 			self.server = self._open_server()
@@ -115,10 +117,10 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		self.game = CarlaClient(self.host, self.port, timeout=99999999)
 		# It's taking a very long time for the server process to spawn, so the client needs to wait or try sufficient no. of times lol
 		self.game.connect(connection_attempts=100)
-		scene = self.game.load_settings(self.settings)
+		self.scene = self.game.load_settings(self.settings)
 
 		# get available start positions
-		positions = scene.player_start_spots
+		positions = self.scene.player_start_spots
 		self.num_pos = len(positions)
 		self.iterator_start_positions = 0
 		self.is_game_setup = self.server and self.game
@@ -151,8 +153,8 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 					"-windowed -ResX={} -ResY={}".format(
 						carla_config.server_width, carla_config.server_height),
 					"-carla-no-hud"]
-			if self.config:
-				cmd.append("-carla-settings={}".format(self.config))
+			if self.carla_server_settings:
+				cmd.append("-carla-settings={}".format(self.carla_server_settings))
 			p = subprocess.Popen(cmd, stdout=out, stderr=out, env=my_env)
 		return p
 
@@ -301,12 +303,11 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 				if self.kill_when_connection_lost:
 					raise ConnectionAbortedError(
 						"Connection to server lost while sending controls. Reconnecting...")
+					self.close_client_and_server()
+					self.setup_client_and_server(reconnect_client_only=False)
+					self.done = True
 
-				self.close_client_and_server()
-				self.setup_client_and_server(reconnect_client_only=False)
-				self.done = True
-
-	def _restart_environment_episode(self, force_environment_reset=True):
+	def _restart_environment_episode(self, force_environment_reset=True, settings=None):
 
 		if not force_environment_reset and not self.done and self.is_game_setup:
 			print("Can't reset dude, episode ain't over yet")
@@ -318,6 +319,18 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			if self.is_render_enabled:
 				self.init_renderer()
 		else:
+			# get settings. Only needed if we want random rollouts
+			if type(settings) == str:
+				# load settings from file
+				with open(settings, 'r') as fp:
+					self.settings = fp.read()
+				self.scene = self.game.load_settings(self.settings)
+			elif type(settings) == CarlaSettings:
+				self.settings = settings
+				self.scene = self.game.load_settings(self.settings)
+			elif settings == None:
+				pass  # already set during initialization
+			
 			self.iterator_start_positions += 1
 			if self.iterator_start_positions >= self.num_pos:
 				self.iterator_start_positions = 0
