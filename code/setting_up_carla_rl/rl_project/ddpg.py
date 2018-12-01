@@ -2,6 +2,8 @@ import sys
 from os import environ
 sys.path.append(environ["CARLA_ROOT"]+'/Setting-Up-CARLA-RL')
 from Environment.carla_environment_wrapper import CarlaEnvironmentWrapper as CarlaEnv
+sys.path.append('../../')
+from Autoencoders.cae.encoder import Encoder
 import numpy as np
 import random
 import argparse
@@ -18,6 +20,8 @@ from ActorNetwork import ActorNetwork
 from CriticNetwork import CriticNetwork
 from OU_noise import OU_noise
 import timeit
+import skimage
+import matplotlib.image as mpimg
 
 noise = OU_noise()       #noise based on Ornstein-Uhlenbeck process
 
@@ -32,7 +36,7 @@ def Simulate_Game(train_indicator=1):    #1 means Train, 0 means simply Run
     LRC = 0.001     #Lerning rate for Critic
 
     action_dim = 3  #Steering/Acceleration/Brake
-    state_dim = 6  #of sensors input
+    state_dim = 3000  #of sensors input
 
     np.random.seed(1337)
 
@@ -48,18 +52,22 @@ def Simulate_Game(train_indicator=1):    #1 means Train, 0 means simply Run
     indicator = 0
 
     #Tensorflow GPU optimization
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
+    config = tf.ConfigProto(device_count={'GPU': 0})
+    #config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
     from keras import backend as K
     K.set_session(sess)
+    
+    encoder = Encoder()
+    encoder.createNetwork()
+    encoder.load_weights('../../Autoencoders/cae/encoder_weights.h5f')
 
     actor = ActorNetwork(sess, state_dim, action_dim, BATCH_SIZE, TAU, LRA)
     critic = CriticNetwork(sess, state_dim, action_dim, BATCH_SIZE, TAU, LRC)
     buff = ReplayBuffer(BUFFER_SIZE)    #Create replay buffer
 
     print("Creating Environment..")
-    env = CarlaEnv(is_render_enabled=False, num_speedup_steps = 10, run_offscreen=False, cameras = ['SceneFinal', 'Depth', 'SemanticSegmentation'], save_screens=True)
+    env = CarlaEnv(is_render_enabled=False, num_speedup_steps = 10, run_offscreen=False, cameras = ['SceneFinal', 'Depth', 'SemanticSegmentation'], save_screens=False)
 
     #Now load the weight
     print("Now we load the weight")
@@ -83,7 +91,9 @@ def Simulate_Game(train_indicator=1):    #1 means Train, 0 means simply Run
 
         ob = env.reset()
         
-        s_t = np.hstack((ob['acceleration'].x, ob['acceleration'].y, ob['acceleration'].z, ob['forward_speed'], ob['intersection_otherlane'], ob['intersection_offroad']))
+        s_t = encoder.predict(np.reshape(skimage.color.rgb2gray(ob['rgb_image']),(1,360,360,1))).ravel()
+        
+        #s_t = np.hstack((ob['acceleration'].x, ob['acceleration'].y, ob['acceleration'].z, ob['forward_speed'], ob['intersection_otherlane'], ob['intersection_offroad']))
         
         total_reward = 0.
 
@@ -110,8 +120,9 @@ def Simulate_Game(train_indicator=1):    #1 means Train, 0 means simply Run
 
             ob, r_t, done, info = env.step(a_t[0])
 
-            s_t1 = np.hstack((ob['acceleration'].x, ob['acceleration'].y, ob['acceleration'].z, ob['forward_speed'], ob['intersection_otherlane'], ob['intersection_offroad']))
+            #s_t1 = np.hstack((ob['acceleration'].x, ob['acceleration'].y, ob['acceleration'].z, ob['forward_speed'], ob['intersection_otherlane'], ob['intersection_offroad']))
             
+            s_t1 = encoder.predict(np.reshape(skimage.color.rgb2gray(ob['rgb_image']),(1,360,360,1))).ravel()
             #print(ob['segmented_image'])            
 
             buff.add(s_t, a_t[0], r_t, s_t1, done)      #Add replay buffer
