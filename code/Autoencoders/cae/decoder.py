@@ -15,21 +15,18 @@ class Decoder(object):
         self.network = None
         self.train_data = None
         self.test_data = None
-        if (weights is not None):
-            self.weights = keras.load_weights(weights)
-        else:
-            self.weights = None
+        self.weights = None
         
         
     def createNetwork(self):
         input_img = Input(shape = self.input_size)
         x = Conv2D(self.filters[0], kernel_size=self.kernel_size, activation='relu', border_mode='same')(input_img) #nb_filter, nb_row, nb_col
-        x = UpSampling2D(pool_size=self.poll_size)(x)
+        x = UpSampling2D(self.poll_size)(x)
         x = Conv2D(self.filters[1], kernel_size=self.kernel_size, activation='relu', border_mode='same')(x)
-        x = UpSampling2D(pool_size=self.poll_size)(x)
-        decoded = Conv2D(1, kernel_size=kernel_tup, activation='sigmoid', border_mode='same')(x)
+        x = UpSampling2D(self.poll_size)(x)
+        decoded = Conv2D(1, kernel_size=self.kernel_size, activation='sigmoid', border_mode='same')(x)
         self.network = Model(input_img, decoded)
-        print('Network created successfully!')
+        print('Decoder Network created successfully!')
         
         
     def load_weights(self,filename = ''):

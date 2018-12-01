@@ -25,9 +25,9 @@ class Encoder(object):
         x = MaxPooling2D(pool_size=(6,6), border_mode='same')(x)
         x = Conv2D(30, kernel_size=(10,10), activation='relu', border_mode='same')(x)
         encoded = MaxPooling2D(pool_size=(6,6), border_mode='same')(x)
-        self.output_size = K.int_shape(encoded)
+        self.output_size = K.int_shape(encoded)[1:]
         self.network = Model(input_img, encoded)
-        print('Network created successfully!')
+        print('Encoder Network created successfully!')
         
         
     def load_weights(self,filename = ''):
