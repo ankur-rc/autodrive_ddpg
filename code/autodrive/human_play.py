@@ -19,18 +19,6 @@ brake_strength = -0.5
 action = [0.0, 0.0]
 reset = False
 total_reward = 0.0
-actions = {0: (0., 0.),
-           1: (0., -steering_strength),
-           2: (0., steering_strength),
-           3: (gas_strength, 0.),
-           4: (brake_strength, 0.),
-           5: (gas_strength, -steering_strength),
-           6: (gas_strength, steering_strength),
-           7: (brake_strength, -steering_strength),
-           8: (brake_strength, steering_strength)}
-
-# https://stackoverflow.com/a/483833/5002496
-action_map = {v: k for k, v in actions.items()}
 
 frame_skip = 5  # No. of frames to skip, i.e., the no. of frames in which to produce consecutive actions. Already CARLA is low FPS, so better be 1
 
@@ -48,23 +36,23 @@ def start_listen():
 
     def on_press(key):
         global action, reset, steering_strength, gas_strength, brake_strength
-        if key == keyboard.Key.up:
-            action[0] = gas_strength
-        elif key == keyboard.Key.down:
-            action[0] = brake_strength
-        elif key == keyboard.Key.left:
-            action[1] = -steering_strength
-        elif key == keyboard.Key.right:
-            action[1] = steering_strength
+        if key == keyboard.KeyCode(char="w"):
+            action[1] = gas_strength
+        elif key == keyboard.KeyCode(char="s"):
+            action[1] = brake_strength
+        elif key == keyboard.KeyCode(char="a"):
+            action[0] = -steering_strength
+        elif key == keyboard.KeyCode(char="d"):
+            action[0] = steering_strength
         elif key == keyboard.Key.space:
             reset = True
 
     def on_release(key):
         global action
-        if key == keyboard.Key.up or key == keyboard.Key.down:
-            action[0] = 0.0
-        elif key == keyboard.Key.left or key == keyboard.Key.right:
+        if key == keyboard.KeyCode(char="w") or key == keyboard.KeyCode(char="s"):
             action[1] = 0.0
+        elif key == keyboard.KeyCode(char="a") or key == keyboard.KeyCode(char="d"):
+            action[0] = 0.0
 
     # Collect events until released
     with keyboard.Listener(
@@ -76,7 +64,7 @@ def start_listen():
 config_file = "/media/ankurrc/new_volume/689_ece_rl/project/code/autodrive/mysettings.ini"
 
 print("Creating Environment..")
-env = CarlaEnv(is_render_enabled=False, num_speedup_steps=10, run_offscreen=False,
+env = CarlaEnv(is_render_enabled=True, automatic_render=True, num_speedup_steps=10, run_offscreen=False,
                cameras=['SceneFinal'], save_screens=False, settings_file=config_file)
 
 print("Resetting the environment..")
@@ -88,32 +76,38 @@ t.start()
 
 print("Start playing..... :)")
 
-while True:
+try:
+    while True:
 
-    if debug_logs:
-        print("Action: "+str(action)+" - ID: "+str(action_map[tuple(action)]))
-        frame_id = (frame_id+1) % total_frames
-        if frame_id == 0:
-            end_time = time.time()
-            print("FPS: "+str(total_frames/(end_time-start_time)))
-            start_time = end_time
+        if debug_logs:
+            print("Action: "+str(action))
+            frame_id = (frame_id+1) % total_frames
+            if frame_id == 0:
+                end_time = time.time()
+                print("FPS: "+str(total_frames/(end_time-start_time)))
+                start_time = end_time
 
-    r = 0.0
-    for _ in range(frame_skip):
-        # print(action_map[tuple(action)])
-        observation, reward, done, _ = env.step(action_map[tuple(action)])
-        # env.render()
-        # env.save_screenshots()
-        r += reward
+        r = 0.0
+        for _ in range(frame_skip):
+            # print(action_map[tuple(action)])m
+            observation, reward, done, _ = env.step(action)
+            print("Action:{}".format(action))
+            # env.render()
+            # env.save_screenshots()
+            r += reward
+            if done:
+                break
+
+        total_reward += r
+        if reset:
+            done = True
+
         if done:
-            break
+            env.reset()
+            reset = False
+            print("Total reward in episode:"+str(total_reward))
+            total_reward = 0.0
 
-    total_reward += r
-    if reset:
-        done = True
-
-    if done:
-        env.reset()
-        reset = False
-        print("Total reward in episode:"+str(total_reward))
-        total_reward = 0.0
+except KeyboardInterrupt:
+    t.join(timeout=1)
+    env.close_client_and_server()

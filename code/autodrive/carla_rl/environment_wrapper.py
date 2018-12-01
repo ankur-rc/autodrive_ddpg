@@ -52,13 +52,13 @@ class EnvironmentWrapper(object):
             self.renderer = None
         self.observation = None
 
-    @property
-    def measurements(self):
-        assert False
+    # @property
+    # def measurements(self):
+    #     assert False
 
-    @measurements.setter
-    def measurements(self, value):
-        assert False
+    # @measurements.setter
+    # def measurements(self, value):
+    #     assert False
 
     # @property
     # def observation(self):
@@ -219,7 +219,7 @@ class EnvironmentWrapper(object):
         :param action_idx: the action to perform on the environment
         :return: None
         """
-        pass
+        raise NotImplementedError("Implement within subclass.")
 
     def _preprocess_state(self, state):
         """
@@ -236,14 +236,14 @@ class EnvironmentWrapper(object):
         Should update self.state, self.reward, self.done and self.info
         :return: None
         """
-        pass
+        raise NotImplementedError("Implement within subclass.")
 
     def _restart_environment_episode(self, force_environment_reset=False):
         """
         :param force_environment_reset: Force the environment to reset even if the episode is not done yet.
         :return:
         """
-        pass
+        raise NotImplementedError("Implement within subclass.")
 
     def get_rendered_image(self):
         """
@@ -251,4 +251,4 @@ class EnvironmentWrapper(object):
         This can be different from the state. For example, mujoco's state is a measurements vector.
         :return: numpy array containing the image that will be rendered to the screen
         """
-        pass
+        raise NotImplementedError("Implement within subclass.")
