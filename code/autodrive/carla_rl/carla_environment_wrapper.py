@@ -262,7 +262,9 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 					  measurements.player_measurements.forward_speed))
 
 		if self.rgb_camera:
-			self.observation['rgb_image'] = sensor_data[self.rgb_camera_name].data
+			self.observation = np.array([sensor_data[self.rgb_camera_name].data, self.observation])
+
+		print(self.observation.shape, self.observation[0].shape, self.observation[1].shape)
 
 		self.autopilot = measurements.player_measurements.autopilot_control
 

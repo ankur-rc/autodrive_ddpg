@@ -402,6 +402,7 @@ class Agent(object):
             # resetting the environment. We need to pass in `terminal=False` here since
             # the *next* state, that is the state of the newly reset environment, is
             # always non-terminal by convention.
+            print(observation)
             self.forward(observation)
             self.backward(0., terminal=False)
 

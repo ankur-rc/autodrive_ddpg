@@ -23,7 +23,7 @@ config_file = "/media/ankurrc/new_volume/689_ece_rl/project/code/autodrive/myset
 settings = get_carla_settings()
 
 env = CarlaEnv(is_render_enabled=False, automatic_render=False, num_speedup_steps=10, run_offscreen=False,
-               cameras=[], save_screens=False, carla_settings=settings, carla_server_settings=config_file)
+               cameras=["SceneFinal"], save_screens=False, carla_settings=settings, carla_server_settings=config_file)
 
 np.random.seed(123)
 observation_shape = (4,)
@@ -31,7 +31,7 @@ nb_actions = 2
 
 # Next, we build a very simple model.
 actor = Sequential()
-actor.add(Flatten(input_shape=(1,) + observation_shape))
+actor.add(Flatten(input_shape=(4,) + observation_shape))
 actor.add(Dense(400))
 actor.add(Activation('relu'))
 actor.add(Dense(300))
@@ -54,15 +54,16 @@ x = Activation('linear')(x)
 critic = Model(inputs=[action_input, observation_input], outputs=x)
 print(critic.summary())
 
-# Finally, we configure and compile our agent. You can use every built-in Keras optimizer and
-# even the metrics!
+
 try:
-    memory = SequentialMemory(limit=100000, window_length=1)
+    memory = SequentialMemory(limit=100000, window_length=4)
+
     random_process = OrnsteinUhlenbeckProcess(
-        size=nb_actions, theta=.15, mu=0., sigma=.1)
+        size=nb_actions, theta=.15, mu=0., sigma=.2)
+
     agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
                       memory=memory, nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000,
-                      random_process=random_process, gamma=.99, target_model_update=1e-3)
+                      random_process=random_process, gamma=.99, target_model_update=1e-3, batch_size=16)
 
     agent.compile([Adam(lr=1e-4), Adam(lr=1e-3)], metrics=['mae'])
 
