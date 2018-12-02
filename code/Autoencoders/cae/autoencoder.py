@@ -12,7 +12,8 @@ from encoder import Encoder
 from decoder import Decoder
 
 class Autoencoder:
-    def __init__(self, filters=[60,30], kernel_size=(10,10), poll_size=(6,6), input_size=(360,360,1), epochs = 5, batch_size= 16):
+    def __init__(self, filters=[15,30,60], kernel_size=[(3,3),(5,5),(10,10)], poll_size=(3,3), input_size=(360,360,1), epochs = 5, batch_size= 16):
+        print(filters)
         self.encoder = Encoder(filters=filters, kernel_size=kernel_size, poll_size=poll_size, input_size=input_size)
         self.encoder.createNetwork()
         self.decoder = Decoder(filters=filters[::-1], kernel_size=kernel_size, poll_size=poll_size, input_size= self.encoder.get_out_length())

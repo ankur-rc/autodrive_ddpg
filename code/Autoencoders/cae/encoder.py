@@ -6,7 +6,7 @@ from keras import backend as K
 import numpy as np
 
 class Encoder(object):
-    def __init__(self, filters=[60,30], kernel_size=(10,10), poll_size=(6,6), input_size=(360,360,1)):
+    def __init__(self, filters=[60,30], kernel_size=[(10,10)], poll_size=(6,6), input_size=(360,360,1)):
         #self.layers = layers
         self.filters = filters
         self.kernel_size = kernel_size
@@ -20,11 +20,14 @@ class Encoder(object):
         
         
     def createNetwork(self):
+        
         input_img = Input(shape = self.input_size)
-        x = Conv2D(self.filters[0], kernel_size=self.kernel_size, activation='relu', border_mode='same')(input_img) #nb_filter, nb_row, nb_col
-        x = MaxPooling2D(pool_size=(6,6), border_mode='same')(x)
-        x = Conv2D(30, kernel_size=(10,10), activation='relu', border_mode='same')(x)
-        encoded = MaxPooling2D(pool_size=(6,6), border_mode='same')(x)
+        x = Conv2D(self.filters[0], kernel_size=self.kernel_size[0], activation='relu', border_mode='same')(input_img) #nb_filter, nb_row, nb_col
+        x = MaxPooling2D(pool_size=self.poll_size, border_mode='same')(x)
+        x = Conv2D(self.filters[1], kernel_size=self.kernel_size[1], activation='relu', border_mode='same')(x) #nb_filter, nb_row, nb_col
+        x = MaxPooling2D(pool_size=self.poll_size, border_mode='same')(x)
+        x = Conv2D(self.filters[2], kernel_size=self.kernel_size[2], activation='relu', border_mode='same')(x)
+        encoded = MaxPooling2D(pool_size=self.poll_size, border_mode='same')(x)
         self.output_size = K.int_shape(encoded)[1:]
         self.network = Model(input_img, encoded)
         print('Encoder Network created successfully!')

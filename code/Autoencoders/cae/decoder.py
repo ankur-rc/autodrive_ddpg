@@ -6,7 +6,7 @@ from keras import backend as K
 import numpy as np
 
 class Decoder(object):
-    def __init__(self, filters=[30,60], kernel_size=(10,10), poll_size=(6,6), input_size=None):
+    def __init__(self, filters=[30,60], kernel_size=[(10,10)], poll_size=(6,6), input_size=None):
         #self.layers = layers
         self.filters = filters
         self.kernel_size = kernel_size
@@ -20,11 +20,13 @@ class Decoder(object):
         
     def createNetwork(self):
         input_img = Input(shape = self.input_size)
-        x = Conv2D(self.filters[0], kernel_size=self.kernel_size, activation='relu', border_mode='same')(input_img) #nb_filter, nb_row, nb_col
+        x = Conv2D(self.filters[0], kernel_size=self.kernel_size[0], activation='relu', border_mode='same')(input_img) #nb_filter, nb_row, nb_col
         x = UpSampling2D(self.poll_size)(x)
-        x = Conv2D(self.filters[1], kernel_size=self.kernel_size, activation='relu', border_mode='same')(x)
+        x = Conv2D(self.filters[1], kernel_size=self.kernel_size[1], activation='relu', border_mode='same')(x)
         x = UpSampling2D(self.poll_size)(x)
-        decoded = Conv2D(1, kernel_size=self.kernel_size, activation='sigmoid', border_mode='same')(x)
+        x = Conv2D(self.filters[2], kernel_size=self.kernel_size[2], activation='relu', border_mode='same')(x)
+        x = UpSampling2D(self.poll_size)(x)
+        decoded = Conv2D(1, kernel_size=(19,19), activation='sigmoid', border_mode='valid')(x)
         self.network = Model(input_img, decoded)
         print('Decoder Network created successfully!')
         
