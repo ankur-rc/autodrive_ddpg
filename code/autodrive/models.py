@@ -31,11 +31,11 @@ class Models(object):
                        self.odometry_shape, name="{}_odometry_in".format(layer_prefix))
 
         x = TimeDistributed(Conv2D(filters=16, kernel_size=(
-            5, 5), padding="same", stride=3, activation="relu"))(img_ip)
+            5, 5), padding="same", strides=3, activation="relu"))(img_ip)
         x = TimeDistributed(Conv2D(filters=32, kernel_size=(
-            3, 3), padding="same", stride=2, activation="relu"))(x)
+            3, 3), padding="same", strides=3, activation="relu"))(x)
         x = TimeDistributed(Conv2D(filters=32, kernel_size=(
-            3, 3), padding="same", stride=2, activation="relu"))(x)
+            3, 3), padding="same", strides=3, activation="relu"))(x)
         x = TimeDistributed(BatchNormalization())(x)
         x = TimeDistributed(Flatten())(x)
         x = LSTM(200, recurrent_dropout=0.2, dropout=0.2)(x)
@@ -44,7 +44,7 @@ class Models(object):
         y = TimeDistributed(BatchNormalization())(y)
         y = LSTM(16, recurrent_dropout=0.2, dropout=0.2)(y)
 
-        op = Concatenate([x, y])
+        op = Concatenate()([x, y])
         op = BatchNormalization(name="{}_out".format(layer_prefix))(op)
 
         return img_ip, odo_ip, op
@@ -58,11 +58,11 @@ class Models(object):
         x = Dense(200, activation="relu",
                   name="{}_dense_2".format(layer_prefix))(x)
         out = Dense(self.nb_actions, activation="tanh",
-                    kernel_initializer=RandomUniform(minval=-3e-4, maxval=3e-4), name="{}_out".format(layer_prefix))
+                    kernel_initializer=RandomUniform(minval=-3e-4, maxval=3e-4), name="{}_out".format(layer_prefix))(x)
 
         self.actor = Model(inputs=[self.ih_img, self.ih_odo], outputs=out)
         print(self.actor.summary())
-        plot_model(self.actor, to="actor.png", show_shapes=True)
+        plot_model(self.actor, to_file="actor.png", show_shapes=True)
 
         return self.actor
 
@@ -70,19 +70,37 @@ class Models(object):
 
         layer_prefix = "critic"
 
-        action_input = Input(shape=(self.nb_actions),
-                             name="{}_action_inp".format(layer_prefix))
-        x = Concatenate([self.ih_out, action_input],
-                        name="{}_inp".format(layer_prefix))
+        self.action_input = action_input = Input(shape=(self.nb_actions,),
+                                                 name="{}_action_inp".format(layer_prefix))
+        x = Concatenate(name="{}_inp".format(layer_prefix))(
+            [self.ih_out, action_input])
         x = Dense(200, activation="relu", name="{}_dense_1".format(
             layer_prefix))(x)
         x = Dense(200, activation="relu",
                   name="{}_dense_2".format(layer_prefix))(x)
         out = Dense(self.nb_actions, activation="linear", kernel_initializer=RandomUniform(
-            minval=-3e-4, maxval=3e-4), name="{}_out".format(layer_prefix))
+            minval=-3e-4, maxval=3e-4), name="{}_out".format(layer_prefix))(x)
 
-        self.critic = Model(inputs=[self.ih_img, self.ih_odo], outputs=out)
+        self.critic = Model(
+            inputs=[self.ih_img, self.ih_odo, action_input], outputs=out)
         print(self.critic.summary())
-        plot_model(self.critic, to="critic.png", show_shapes=True)
+        plot_model(self.critic, to_file="critic.png", show_shapes=True)
 
         return self.critic
+
+
+def main():
+    models = Models(image_shape=(84, 84, 3), odometry_shape=(
+        4,), window_length=4, nb_actions=2)
+    actor = models.build_actor()
+    critic = models.build_critic()
+
+    action_input = Input(shape=(models.nb_actions,),
+                         name="{}_action_inp".format("critic"))
+    model = Model(inputs=[models.ih_img, models.ih_odo, models.action_input],
+                  outputs=actor.outputs + critic.outputs)
+    plot_model(model, to_file="model.png", show_shapes=True)
+
+
+if __name__ == "__main__":
+    main()
