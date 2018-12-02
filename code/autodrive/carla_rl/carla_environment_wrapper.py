@@ -3,6 +3,7 @@ import time
 import subprocess
 import signal
 from os import path, environ
+import traceback
 
 from carla.client import CarlaClient
 from carla.settings import CarlaSettings
@@ -21,9 +22,8 @@ import random
 
 try:
 	if 'CARLA_ROOT' not in environ:
-		raise Exception()
+		raise Exception("CARLA Environment variable CARLA_ROOT not set")
 except Exception:
-	print("CARLA Environment variable CARLA_ROOT not set")
 	sys.exit(1)
 
 
@@ -128,7 +128,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 
 	def close_client_and_server(self):
 		self._close_server()
-		print("Disconnecting the client")
+		print("\t Disconnecting the client")
 		self.game.disconnect()
 		self.game = None
 		self.server = None
@@ -185,7 +185,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			self.cur_neg_steps += 1
 			early_done = (self.cur_neg_steps > self.max_neg_steps)
 			if early_done:
-				print("Early kill the mad car")
+				print("\t Early kill the mad car")
 				return early_done, self.early_termination_punishment
 		else:
 			self.cur_neg_steps /= 2  # Exponentially decay
@@ -200,7 +200,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			# Connection between cli and server lost; reconnect
 			if self.kill_when_connection_lost:
 				raise
-			print("Connection to server lost while reading state. Reconnecting...........")
+			print("\t Connection to server lost while reading state. Reconnecting...")
 			self.close_client_and_server()
 			self.setup_client_and_server(reconnect_client_only=False)
 			self.done = True
@@ -222,13 +222,13 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			self.unmoved_steps += 1
 			if self.unmoved_steps > self.kill_if_unmoved_for_n_steps:
 				is_collision = True
-				print("Car stuck somewhere.")
+				print("\t Car stuck somewhere.")
 		elif self.unmoved_steps > 0:
 			# decay slowly, since it may be stuck and not accelerate few times
 			self.unmoved_steps -= 0.50
 
 		if is_collision:
-			print("Collision occured")
+			print("\t Collision occured")
 
 		# Reward Shaping:
 		speed_reward = self.car_speed - 1
@@ -251,10 +251,15 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			self.reward -= punishment
 
 		# update measurements
-		self.observation = {
-							'acceleration': measurements.player_measurements.acceleration,
-							'forward_speed': measurements.player_measurements.forward_speed
-		}
+		# self.observation = {
+		# 					'acceleration': measurements.player_measurements.acceleration,
+		# 					'forward_speed': measurements.player_measurements.forward_speed
+		# }
+
+		self.observation = np.hstack((measurements.player_measurements.acceleration.x,
+                      measurements.player_measurements.acceleration.y,
+					   measurements.player_measurements.acceleration.z, 
+					  measurements.player_measurements.forward_speed))
 
 		if self.rgb_camera:
 			self.observation['rgb_image'] = sensor_data[self.rgb_camera_name].data
@@ -269,7 +274,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 	def _take_action(self, action):
 
 		if not self.is_game_setup:
-			print("Reset the environment by reset() before calling step()")
+			print("\t Reset the environment by reset() before calling step()")
 			sys.exit(1)
 
 	  	# assert len(actions) == 2, "Send actions in the format [steer, accelaration]"
@@ -299,10 +304,10 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 				self.game.send_control(self.control)
 				controls_sent = True
 				# print("controls sent!")
-			except:
+			except Exception as e:
+				traceback.print_exc()
 				if self.kill_when_connection_lost:
-					raise ConnectionAbortedError(
-						"Connection to server lost while sending controls. Reconnecting...")
+					print("\t Connection to server lost while sending controls. Reconnecting...")
 					self.close_client_and_server()
 					self.setup_client_and_server(reconnect_client_only=False)
 					self.done = True
@@ -349,7 +354,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		# start the game with some initial speed
 		observation = None
 		for i in range(self.num_speedup_steps):
-			observation, reward, done, _ = self.step([0, 0.15])
+			observation, reward, done, _ = self.step([0, 0.25])
 		self.observation = observation
 		self.is_game_ready_for_input = True
 

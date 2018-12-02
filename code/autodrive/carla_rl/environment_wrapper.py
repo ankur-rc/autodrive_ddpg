@@ -131,7 +131,7 @@ class EnvironmentWrapper(object):
             self.render()
 
         #self.state = self._preprocess_state(self.state)
-        return self.observation, self.reward, self.done, self.info
+        return self.observation, self.reward, self.done, {}
 
     def render(self):
         """

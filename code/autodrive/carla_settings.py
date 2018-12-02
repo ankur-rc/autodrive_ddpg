@@ -25,8 +25,9 @@ def get_carla_settings(settings_file=None):
             SendNonPlayerAgentsInfo=True,
             NumberOfVehicles=0,
             NumberOfPedestrians=0,
-            WeatherId=random.choice([1, 3, 7, 8, 14]),
-            QualityLevel="Low",
+            # 8-14 are sunset; we want easy first
+            WeatherId=random.choice(range(0, 8)),
+            QualityLevel='Low',
         )
         settings.randomize_seeds()
 
@@ -35,13 +36,13 @@ def get_carla_settings(settings_file=None):
         # frame.
 
         # The default camera captures RGB images of the scene.
-        camera0 = Camera('CameraRGB')
+        # camera0 = Camera('CameraRGB')
         # Set image resolution in pixels.
-        camera0.set_image_size(carla_config.render_width,
-                               carla_config.render_height)
+        # camera0.set_image_size(carla_config.render_width,
+        #    carla_config.render_height)
         # Set its position relative to the car in meters.
-        camera0.set_position(0.30, 0, 1.30)
-        settings.add_sensor(camera0)
+        # camera0.set_position(0.30, 0, 1.30)
+        # settings.add_sensor(camera0)
 
     else:
 
