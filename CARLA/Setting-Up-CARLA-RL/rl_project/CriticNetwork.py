@@ -8,12 +8,12 @@ from keras.optimizers import Adam
 import keras.backend as K
 import tensorflow as tf
 
-HIDDEN1_UNITS = 600
-HIDDEN2_UNITS = 600
+HIDDEN1_UNITS = 250
+HIDDEN2_UNITS = 250
 
 class CriticNetwork(object):
 
-    def __init__(self, sess, S, I, action_size, n_oth_var, BATCH_SIZE, TAU, LEARNING_RATE):
+    def __init__(self, sess, S, I1, I2, I3, I4, action_size, n_oth_var, BATCH_SIZE, TAU, LEARNING_RATE, n_frames):
     
         self.sess = sess
         self.BATCH_SIZE = BATCH_SIZE
@@ -24,15 +24,15 @@ class CriticNetwork(object):
         K.set_session(sess)
 
         #Now create the model
-        self.model, self.action, self.state_img, self.state_oth = self.create_critic_network(S, I, action_size, n_oth_var )  
-        self.target_model, self.target_action, self.target_state_img, self.target_state_oth = self.create_critic_network(S, I, action_size, n_oth_var )  
+        self.model, self.action, self.state_img1, self.state_img2, self.state_img3, self.state_img4, self.state_oth = self.create_critic_network(S, I1, I2, I3, I4, action_size, n_oth_var, n_frames)  
+        self.target_model, self.target_action, self.target_state_img1, self.target_state_img2, self.target_state_img3, self.target_state_img4, self.target_state_oth = self.create_critic_network(S, I1, I2, I3, I4, action_size, n_oth_var, n_frames)  
         self.action_grads = tf.gradients(self.model.output, self.action)  #GRADIENTS for policy update
         self.sess.run(tf.initialize_all_variables())
 
-    def gradients(self, states_img, states_oth, actions):
+    def gradients(self, states_img1, states_img2, states_img3, states_img4, states_oth, actions):
     
         return self.sess.run(self.action_grads, feed_dict={
-            self.state_img: states_img, self.state_oth: states_oth, self.action: actions
+            self.state_img1: states_img1, self.state_img2: states_img2, self.state_img3: states_img3, self.state_img4: states_img4, self.state_oth: states_oth, self.action: actions
         })[0]
 
     def target_train(self):
@@ -45,11 +45,11 @@ class CriticNetwork(object):
     
         self.target_model.set_weights(critic_target_weights)
 
-    def create_critic_network(self, S, I, action_dim, n_oth_var):
+    def create_critic_network(self, S, I1, I2, I3, I4, action_dim, n_oth_var, n_frames):
     
         print("Now we build the model")
         #S = Input(shape=[state_size])  
-        other_variables = Input(shape=[n_oth_var])
+        other_variables = Input(shape=[n_oth_var*n_frames])
         state_vector = concatenate([S, other_variables],axis=-1)
     
         A = Input(shape=[action_dim],name='action2')   
@@ -60,9 +60,9 @@ class CriticNetwork(object):
         h2 = Add()([h1, a1])
     
         h3 = Dense(HIDDEN2_UNITS, activation='relu')(h2)
-        V = Dense(action_dim,activation='linear')(h3)   
-        model = Model(inputs=[I, other_variables, A],outputs=V)
+        V = Dense(1,activation='linear')(h3)   
+        model = Model(inputs=[I1, I2, I3, I4, other_variables, A],outputs=V)
         adam = Adam(lr=self.LEARNING_RATE)
         model.compile(loss='mse', optimizer=adam)
     
-        return model, A, I, other_variables
+        return model, A, I1, I2, I3, I4, other_variables

@@ -13,7 +13,7 @@ from carla.sensor import Camera
 from carla.client import VehicleControl
 from carla.image_converter import depth_to_logarithmic_grayscale, depth_to_local_point_cloud, depth_to_array
 from Environment.renderer import Renderer
-
+import cv2
 import numpy as np
 from Environment.environment_wrapper import EnvironmentWrapper
 from Environment.utils import *
@@ -71,6 +71,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		)
 		
 		self.rgb_camera_name = 'CameraRGB'
+		self.to_resize = 82
 		#self.segment_camera_name = 'CameraSegment'
 		#self.depth_camera_name = 'CameraDepth'
 		self.rgb_camera = 'SceneFinal' in cameras
@@ -142,7 +143,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		# measurements
 		self.measurements_size = (1,)
 		self.autopilot = None
-		self.kill_if_unmoved_for_n_steps = 50
+		self.kill_if_unmoved_for_n_steps = 120
 		self.unmoved_steps = 0.0
 		
 		self.early_termination_enabled = early_termination_enabled
@@ -314,11 +315,12 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			'forward_speed': measurements.player_measurements.forward_speed,
 			'intersection_otherlane': measurements.player_measurements.intersection_otherlane,
 			'intersection_offroad': measurements.player_measurements.intersection_offroad,
-			'rotation': measurements.player_measurements.transform.rotation.yaw
+			'rotation': measurements.player_measurements.transform.rotation.yaw,
+			'location': measurements.player_measurements.transform.location
 		}
 		
 		if self.rgb_camera:
-			self.observation['rgb_image'] = sensor_data[self.rgb_camera_name].data
+			self.observation['rgb_image'] = self.image_preprocess(sensor_data[self.rgb_camera_name].data)
 		#if self.segment_camera:
 		#	self.observation['segmented_image'] = sensor_data[self.segment_camera_name].data
 		#if self.depth_camera:
@@ -339,6 +341,15 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			# screen.success('EPISODE IS DONE. GameTime: {}, Collision: {}'.format(str(measurements.game_timestamp),
 			#																	  str(is_collision)))
 			self.done = True
+
+	def image_preprocess(self, image):
+
+		x_t1 = image[160:360, 0:360]
+		x_t1 = cv2.resize(x_t1,(self.to_resize, self.to_resize))#skimage.transform.resize(x_t1,(self.to_resize, self.to_resize))
+		x_t1 = cv2.normalize(x_t1, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+		x_t1 = cv2.cvtColor(x_t1, cv2.COLOR_BGR2GRAY)
+		
+		return x_t1
 
 	def _take_action(self, action):
 		
@@ -405,7 +416,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		if self.early_termination_enabled:
 			self.cur_neg_steps = 0
 		# start the game with some initial speed
-		self.car_speed = 0
+		self.car_speed = 0.4
 		observation = None
 		for i in range(self.num_speedup_steps):
 			observation, reward, done, _ = self.step([1.0, 0, 0])
