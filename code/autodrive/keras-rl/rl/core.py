@@ -245,6 +245,8 @@ class Agent(object):
             # This is so common that we've built this right into this function, which ensures that
             # the `on_train_end` method is properly called.
             did_abort = True
+            # changed here ~
+            env.close_client_and_server()
         callbacks.on_train_end(logs={'did_abort': did_abort})
         self._on_train_end()
 

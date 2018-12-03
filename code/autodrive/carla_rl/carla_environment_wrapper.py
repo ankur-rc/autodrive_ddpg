@@ -37,7 +37,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 					num_speedup_steps=10,
 					require_explicit_reset=True,
 					is_render_enabled=False,
-					automatic_render = False,
+					automatic_render=False,
 					early_termination_enabled=False,
 					run_offscreen=False,
 					cameras=['SceneFinal'],
@@ -54,6 +54,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		self.verbose = True
 		self.observation = None
 		self.num_speedup_steps = num_speedup_steps
+		self.counter = 0
 
 		self.rgb_camera_name = 'CameraRGB'
 		self.rgb_camera = 'SceneFinal' in cameras
@@ -78,7 +79,8 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			self.settings = carla_settings
 			carla_settings = None
 		elif carla_settings == None:
-			raise Exception("Please load a CarlaSettings object or provide a path to a settings file.")
+			raise Exception(
+			    "Please load a CarlaSettings object or provide a path to a settings file.")
 
 		self.car_speed = 0.
 		self.max_speed = 35.
@@ -205,9 +207,9 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			self.setup_client_and_server(reconnect_client_only=False)
 			self.done = True
 
-		self.location = (measurements.player_measurements.transform.location.x,
+		self.location = [measurements.player_measurements.transform.location.x,
 						measurements.player_measurements.transform.location.y,
-						measurements.player_measurements.transform.location.z)
+						measurements.player_measurements.transform.location.z]
 
 		is_collision = measurements.player_measurements.collision_vehicles != 0 \
 						or measurements.player_measurements.collision_pedestrians != 0 \
@@ -251,20 +253,19 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			self.reward -= punishment
 
 		# update measurements
-		# self.observation = {
-		# 					'acceleration': measurements.player_measurements.acceleration,
-		# 					'forward_speed': measurements.player_measurements.forward_speed
-		# }
-
-		self.observation = np.hstack((measurements.player_measurements.acceleration.x,
+		self.observation = np.hstack(self.location + [measurements.player_measurements.acceleration.x,
                       measurements.player_measurements.acceleration.y,
-					   measurements.player_measurements.acceleration.z, 
-					  measurements.player_measurements.forward_speed))
+					   measurements.player_measurements.acceleration.z,
+					  measurements.player_measurements.forward_speed])
 
 		if self.rgb_camera:
-			self.observation = np.array([sensor_data[self.rgb_camera_name].data, self.observation])
-
-		print(self.observation.shape, self.observation[0].shape, self.observation[1].shape)
+			img_data = sensor_data[self.rgb_camera_name].data/255.
+			self.observation = [self.observation, img_data]
+		
+		# self.counter +=1
+		# self.observation = np.array(
+		# 	[np.array([self.counter - 1]), np.array([self.counter, self.counter + 1])])
+		# print(self.observation.shape)
 
 		self.autopilot = measurements.player_measurements.autopilot_control
 
@@ -306,7 +307,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 				self.game.send_control(self.control)
 				controls_sent = True
 				# print("controls sent!")
-			except Exception as e:
+			except Exception:
 				traceback.print_exc()
 				if self.kill_when_connection_lost:
 					print("\t Connection to server lost while sending controls. Reconnecting...")

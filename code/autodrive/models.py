@@ -60,9 +60,9 @@ class Models(object):
         out = Dense(self.nb_actions, activation="tanh",
                     kernel_initializer=RandomUniform(minval=-3e-4, maxval=3e-4), name="{}_out".format(layer_prefix))(x)
 
-        self.actor = Model(inputs=[self.ih_img, self.ih_odo], outputs=out)
+        self.actor = Model(inputs=[self.ih_odo, self.ih_img], outputs=out)
         print(self.actor.summary())
-        plot_model(self.actor, to_file="actor.png", show_shapes=True)
+        plot_model(self.actor, to_file="imgs/actor.png", show_shapes=True)
 
         return self.actor
 
@@ -74,17 +74,18 @@ class Models(object):
                                                  name="{}_action_inp".format(layer_prefix))
         x = Concatenate(name="{}_inp".format(layer_prefix))(
             [self.ih_out, action_input])
+        x = BatchNormalization()(x)
         x = Dense(200, activation="relu", name="{}_dense_1".format(
             layer_prefix))(x)
         x = Dense(200, activation="relu",
                   name="{}_dense_2".format(layer_prefix))(x)
-        out = Dense(self.nb_actions, activation="linear", kernel_initializer=RandomUniform(
+        out = Dense(1, activation="linear", kernel_initializer=RandomUniform(
             minval=-3e-4, maxval=3e-4), name="{}_out".format(layer_prefix))(x)
 
         self.critic = Model(
-            inputs=[self.ih_img, self.ih_odo, action_input], outputs=out)
+            inputs=[self.ih_odo, self.ih_img, action_input], outputs=out)
         print(self.critic.summary())
-        plot_model(self.critic, to_file="critic.png", show_shapes=True)
+        plot_model(self.critic, to_file="imgs/critic.png", show_shapes=True)
 
         return self.critic
 
@@ -97,9 +98,10 @@ def main():
 
     action_input = Input(shape=(models.nb_actions,),
                          name="{}_action_inp".format("critic"))
-    model = Model(inputs=[models.ih_img, models.ih_odo, models.action_input],
+    model = Model(inputs=[models.ih_odo, models.ih_img, models.action_input],
                   outputs=actor.outputs + critic.outputs)
-    plot_model(model, to_file="model.png", show_shapes=True)
+    plot_model(model, to_file="imgs/model.png", show_shapes=True)
+    print(model.summary())
 
 
 if __name__ == "__main__":
