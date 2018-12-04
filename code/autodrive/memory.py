@@ -100,7 +100,7 @@ class PrioritizedExperience(Memory):
 
     """
 
-    def __init__(self, memory_size, alpha, **kwargs):
+    def __init__(self, memory_size, alpha, beta, **kwargs):
         """ Prioritized experience replay buffer initialization.
 
         Parameters
@@ -112,14 +112,17 @@ class PrioritizedExperience(Memory):
         alpha: float
             exponent determine how much prioritization.
             Prob_i \sim priority_i**alpha/sum(priority**alpha)
+        beta: float
         """
         super(PrioritizedExperience, self).__init__(**kwargs)
 
         self.tree = SumTree(memory_size)
         self.memory_size = memory_size
         self.alpha = alpha
+        self.beta = beta
+        self.max_priority = 1.0
 
-    def append(self, observation, action, reward, terminal, priority, training=True):
+    def append(self, observation, action, reward, terminal, training=True):
         """ Add new sample.
 
         Parameters
@@ -128,24 +131,23 @@ class PrioritizedExperience(Memory):
         action (int): Action taken to obtain this observation
         reward (float): Reward obtained by taking this action
         terminal (boolean): Is the state terminal
-        priority (float): sample's priority 
+
         """
         super(PrioritizedExperience, self).append(observation,
                                                   action, reward, terminal, training=training)
 
         if training:
             self.tree.add([observation, action, reward,
-                           terminal], priority**self.alpha)
+                           terminal], self.max_priority**self.alpha)
 
-    def sample(self, batch_size, beta, batch_idxs=None):
+    def sample(self, batch_size, beta=None):
         """Return a randomized batch of experiences
 
         # Argument
             batch_size (int): Size of the all batch
-            batch_idxs (int): Indexes to extract
             beta (float)
         # Returns
-            A list of experiences randomly selected
+            A list of experiences, weights and indices
         """
 
         assert self.tree.filled_size() >= batch_size + 2, "Not enough entries in memory"
@@ -227,7 +229,7 @@ class PrioritizedExperience(Memory):
         weights /= max(weights)  # Normalize for stability
 
         assert len(experiences) == batch_size
-        return experiences
+        return experiences, weights, batch_idxs
 
     def priority_update(self, indices, priorities):
         """ The methods update samples's priority.

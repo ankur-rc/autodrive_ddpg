@@ -113,7 +113,7 @@ class Memory(object):
         self.recent_observations = deque(maxlen=window_length)
         self.recent_terminals = deque(maxlen=window_length)
 
-    def sample(self, batch_size, batch_idxs=None):
+    def sample(self, batch_size, **kwargs):
         raise NotImplementedError()
 
     def append(self, observation, action, reward, terminal, training=True):
@@ -173,7 +173,7 @@ class SequentialMemory(Memory):
         self.terminals = RingBuffer(limit)
         self.observations = RingBuffer(limit)
 
-    def sample(self, batch_size, batch_idxs=None):
+    def sample(self, batch_size, **kwargs):
         """Return a randomized batch of experiences
 
         # Argument
@@ -187,6 +187,8 @@ class SequentialMemory(Memory):
         # we will never return this first state (only using `self.terminals[0]` to know whether the
         # second state is terminal).
         # In addition we need enough entries to fill the desired window length.
+        batch_idxs = kwargs.get("batch_idxs")
+
         assert self.nb_entries >= self.window_length + \
             2, 'not enough entries in the memory'
 
@@ -299,7 +301,7 @@ class EpisodeParameterMemory(Memory):
         self.intermediate_rewards = []
         self.total_rewards = RingBuffer(limit)
 
-    def sample(self, batch_size, batch_idxs=None):
+    def sample(self, batch_size, **kwargs):
         """Return a randomized batch of params and rewards
 
         # Argument
@@ -308,6 +310,8 @@ class EpisodeParameterMemory(Memory):
         # Returns
             A list of params randomly selected and a list of associated rewards
         """
+        batch_idxs = kwargs.get("batch_idxs")
+
         if batch_idxs is None:
             batch_idxs = sample_batch_indexes(
                 0, self.nb_entries, size=batch_size)

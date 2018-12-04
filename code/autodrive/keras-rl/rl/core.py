@@ -92,6 +92,7 @@ class Agent(object):
                 'action_repetition must be >= 1, is {}'.format(action_repetition))
 
         self.training = True
+        self.nb_steps = nb_steps
 
         callbacks = [] if not callbacks else callbacks[:]
 
