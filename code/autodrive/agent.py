@@ -337,7 +337,7 @@ class DDPG_PERAgent(Agent):
 
                 # update the memory
                 self.memory.priority_update(
-                    is_indices, abs(target_q_values) - targets)
+                    is_indices, np.abs(target_q_values - targets.reshape(-1)))
 
             # Update actor, if warm up is over.
             if self.step > self.nb_steps_warmup_actor:

@@ -80,7 +80,7 @@ try:
         size=nb_actions, theta=.15, mu=0., sigma=.2, n_steps_annealing=nb_steps)
 
     agent = DDPG_PERAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
-                          memory=memory, nb_steps_warmup_critic=216, nb_steps_warmup_actor=216,
+                          memory=memory, nb_steps_warmup_critic=65, nb_steps_warmup_actor=65,
                           random_process=random_process, gamma=.99, target_model_update=1e-3, batch_size=16)
 
     agent.compile([Adam(lr=1e-4), Adam(lr=1e-3)], metrics=['mae'])
@@ -89,7 +89,7 @@ try:
     # slows down training quite a lot. You can always safely abort the training prematurely using
     # Ctrl + C.
     train_history = agent.fit(env, nb_steps=nb_steps, visualize=False,
-                              verbose=1, action_repetition=4)
+                              verbose=1)
 
     # After training is done, we save the final weights.
     agent.save_weights('ddpg_{}_weights.h5f'.format(ENV_NAME), overwrite=True)
