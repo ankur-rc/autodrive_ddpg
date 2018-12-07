@@ -36,13 +36,13 @@ def get_carla_settings(settings_file=None):
         # frame.
 
         # The default camera captures RGB images of the scene.
-        camera0 = Camera('CameraRGB')
-        # Set image resolution in pixels.
-        camera0.set_image_size(carla_config.render_width,
-                               carla_config.render_height)
-        # Set its position relative to the car in meters.
-        camera0.set_position(0.30, 0, 1.30)
-        settings.add_sensor(camera0)
+        # camera0 = Camera('CameraRGB')
+        # # Set image resolution in pixels.
+        # camera0.set_image_size(carla_config.render_width,
+        #                        carla_config.render_height)
+        # # Set its position relative to the car in meters.
+        # camera0.set_position(0.30, 0, 1.30)
+        # settings.add_sensor(camera0)
 
     else:
 

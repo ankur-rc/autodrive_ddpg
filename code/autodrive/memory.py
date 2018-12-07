@@ -26,7 +26,7 @@ class SumTree(object):
         self.tree_level = math.ceil(math.log(maxlen + 1, 2)) + 1
         # calculate the nodes in the tree
         self.tree_size = 2**self.tree_level - 1
-        # allocate memory to the datastructures
+        # allocate memory to the data structures
         self.tree = [0 for i in range(self.tree_size)]
         self.data = [None for i in range(self.maxlen)]
         # current size of the tree
@@ -64,6 +64,7 @@ class SumTree(object):
             self.reconstruct(tindex, diff)
 
     def find(self, value, norm=True):
+
         if norm:
             value *= self.tree[0]
         return self._find(value, 0)
@@ -73,6 +74,7 @@ class SumTree(object):
             return self.data[index-(2**(self.tree_level-1)-1)], self.tree[index], index-(2**(self.tree_level-1)-1)
 
         left = self.tree[2*index+1]
+        print("left:", left, type(left))
 
         if value <= left:
             return self._find(value, 2*index+1)
@@ -121,6 +123,7 @@ class PrioritizedExperience(Memory):
         self.alpha = alpha
         self.beta = beta
         self.max_priority = 1.0
+        self.recent_experiences = deque(maxlen=self.window_length + 1)
 
     def append(self, observation, action, reward, terminal, training=True):
         """ Add new sample.
@@ -137,8 +140,42 @@ class PrioritizedExperience(Memory):
                                                   action, reward, terminal, training=training)
 
         if training:
-            self.tree.add([observation, action, reward,
-                           terminal], self.max_priority**self.alpha)
+            self.recent_experiences.append([observation,
+                                            action, reward, terminal])
+
+            state0 = []
+            state1 = []
+
+            for i in range(len(self.recent_experiences) - 1):
+                state0.append(self.recent_experiences[i][0])
+            while len(state0) < self.window_length:
+                state0.insert(0, zeroed_observation(observation))
+
+            state1 = [np.copy(x) for x in state0[1:]]
+            state1.append(observation)
+
+            if len(self.recent_experiences) < 2:
+                reward = 0
+                act = action
+                terminal = False
+            else:
+                reward = self.recent_experiences[-2][2]
+                act = self.recent_experiences[-2][1]
+                terminal = self.recent_experiences[-2][3]
+
+            assert len(
+                state0) == self.window_length, "{} =/= {}".format(len(state0), self.window_length)
+            assert len(state1) == len(state0)
+
+            experience = Experience(state0=state0, action=act, reward=reward,
+                                    state1=state1, terminal1=terminal)
+
+            self.tree.add(experience, self.max_priority**self.alpha)
+
+        if len(self.recent_terminals) > 2:
+            if self.recent_terminals[-2] is True:
+                 # previous step ended the episode
+                self.recent_experiences.clear()
 
     def sample(self, batch_size, beta=None):
         """Return a randomized batch of experiences
@@ -150,85 +187,29 @@ class PrioritizedExperience(Memory):
             A list of experiences, weights and indices
         """
 
-        assert self.tree.filled_size() >= batch_size + 2, "Not enough entries in memory"
+        assert self.tree.filled_size() >= batch_size, "Not enough entries in memory"
 
-        out = []
+        experiences = []
         batch_idxs = []
         weights = []
         priorities = []
         for _ in range(batch_size):
             r = random.random()
-            data, priority, idx = self.tree.find(r)
+            experience, priority, idx = self.tree.find(r)
             batch_idxs.append(idx)
-            out.append(data)
+            experiences.append(experience)
             priorities.append(priority)
-
-        batch_idxs = np.array(batch_idxs) + 1
-        assert np.min(batch_idxs) >= self.window_length + 1
-        assert np.max(batch_idxs) < self.nb_entries
-        assert len(batch_idxs) == batch_size
-
-        # Create experiences
-        experiences = []
-        for i, idx, priority, data in enumerate(zip(batch_idxs, priorities, out)):
-            # [observation, action, reward, terminal]
-            # idx - 1 to negate previus step, and terminal flag is in last experience for current observation
-            terminal0 = self.tree.data[idx - 2][3]
-            while terminal0:
-                # Skip this transition because the environment was reset here. Select a new, random
-                # transition and use this instead. This may cause the batch to contain the same
-                # transition twice.
-                r = random.random()
-                data, priority, idx = self.tree.find(r)
-                terminal0 = self.tree.data[idx - 2][3]
-            assert self.window_length + 1 <= idx < self.nb_entries
-
-            # This code is slightly complicated by the fact that subsequent observations might be
-            # from different episodes. We ensure that an experience never spans multiple episodes.
-            # This is probably not that important in practice but it seems cleaner.
-            state0 = [self.tree.data[idx - 1][0]]
-            for offset in range(0, self.window_length - 1):
-                current_idx = idx - 2 - offset
-                assert current_idx >= 1
-                current_terminal = self.tree.data[current_idx - 1][3]
-                if current_terminal and not self.ignore_episode_boundaries:
-                    # The previously handled observation was terminal, don't add the current one.
-                    # Otherwise we would leak into a different episode.
-                    break
-                state0.insert(0, self.tree.data[current_idx][0])
-            while len(state0) < self.window_length:
-                state0.insert(0, zeroed_observation(state0[0]))
-            action = self.tree.data[idx - 1][1]
-            reward = self.tree.data[idx - 1][2]
-            terminal1 = self.tree.data[idx - 1][3]
-
-            # Okay, now we need to create the follow-up state. This is state0 shifted on timestep
-            # to the right. Again, we need to be careful to not include an observation from the next
-            # episode if the last state is terminal.
-            state1 = [np.copy(x) for x in state0[1:]]
-            state1.append(self.tree.data[idx][0])
-
-            # incase these values change during the initial loop where we check for terminal0 to be True
-            priorities[i] = priority
-            out[i] = data
-            batch_idxs[i] = idx
-
             # add the importance sampling weights
             weights.append((1./self.memory_size/priority) **
                            beta if priority > 1e-16 else 0)
-
             self.priority_update([idx], [0])  # To avoid duplicating
 
-            assert len(state0) == self.window_length
-            assert len(state1) == len(state0)
-            experiences.append(Experience(state0=state0, action=action, reward=reward,
-                                          state1=state1, terminal1=terminal1))
-
         self.priority_update(batch_idxs, priorities)  # Revert priorities
-
         weights /= max(weights)  # Normalize for stability
 
+        assert len(batch_idxs) == batch_size
         assert len(experiences) == batch_size
+
         return experiences, weights, batch_idxs
 
     def priority_update(self, indices, priorities):
