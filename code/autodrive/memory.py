@@ -124,6 +124,20 @@ class PrioritizedExperience(Memory):
         self.max_priority = 1.0
         self.recent_experiences = deque(maxlen=self.window_length + 1)
 
+    def get_recent_state(self, current_observation):
+        state0 = []
+        state1 = []
+
+        for i in range(len(self.recent_experiences) - 1):
+            state0.append(self.recent_experiences[i][0])
+        while len(state0) < self.window_length:
+            state0.insert(0, zeroed_observation(current_observation))
+
+        state1 = [np.copy(x) for x in state0[1:]]
+        state1.append(current_observation)
+
+        return state1
+
     def append(self, observation, action, reward, terminal, training=True):
         """ Add new sample.
 

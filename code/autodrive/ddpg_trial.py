@@ -37,37 +37,37 @@ beta = 0.6
 nb_steps = 10**6
 
 env = CarlaEnv(is_render_enabled=False, automatic_render=False, num_speedup_steps=10, run_offscreen=False,
-               cameras=[], save_screens=False, carla_settings=get_carla_settings(), carla_server_settings=config_file)
+               cameras=["SceneFinal"], save_screens=False, carla_settings=get_carla_settings(), carla_server_settings=config_file)
 
-# models = Models(image_shape=(carla_config.render_width, carla_config.render_height, 3),
-#                 odometry_shape=odometry_shape, window_length=window_size, nb_actions=nb_actions)
+models = Models(image_shape=(carla_config.render_width, carla_config.render_height, 3),
+                odometry_shape=odometry_shape, window_length=window_size, nb_actions=nb_actions)
 
-# actor = models.build_actor()
-# critic = models.build_critic()
+actor = models.build_actor()
+critic = models.build_critic()
 
-actor = Sequential()
-actor.add(Flatten(input_shape=(window_size,) + odometry_shape))
-actor.add(Dense(400))
-actor.add(Activation('relu'))
-actor.add(Dense(300))
-actor.add(Activation('relu'))
-actor.add(Dense(nb_actions))
-actor.add(Activation('tanh'))
-print(actor.summary())
+# actor = Sequential()
+# actor.add(Flatten(input_shape=(window_size,) + odometry_shape))
+# actor.add(Dense(400))
+# actor.add(Activation('relu'))
+# actor.add(Dense(300))
+# actor.add(Activation('relu'))
+# actor.add(Dense(nb_actions))
+# actor.add(Activation('tanh'))
+# print(actor.summary())
 
-action_input = Input(shape=(nb_actions,), name='action_input')
-observation_input = Input(
-    shape=(window_size,) + odometry_shape, name='observation_input')
-flattened_observation = Flatten()(observation_input)
-x = Dense(400)(flattened_observation)
-x = Activation('relu')(x)
-x = Concatenate()([x, action_input])
-x = Dense(300)(x)
-x = Activation('relu')(x)
-x = Dense(1)(x)
-x = Activation('linear')(x)
-critic = Model(inputs=[action_input, observation_input], outputs=x)
-print(critic.summary())
+# action_input = Input(shape=(nb_actions,), name='action_input')
+# observation_input = Input(
+#     shape=(window_size,) + odometry_shape, name='observation_input')
+# flattened_observation = Flatten()(observation_input)
+# x = Dense(400)(flattened_observation)
+# x = Activation('relu')(x)
+# x = Concatenate()([x, action_input])
+# x = Dense(300)(x)
+# x = Activation('relu')(x)
+# x = Dense(1)(x)
+# x = Activation('linear')(x)
+# critic = Model(inputs=[action_input, observation_input], outputs=x)
+# print(critic.summary())
 
 train_history = None
 
@@ -79,9 +79,9 @@ try:
     random_process = OrnsteinUhlenbeckProcess(
         size=nb_actions, theta=.15, mu=0., sigma=.2, n_steps_annealing=nb_steps)
 
-    agent = DDPG_PERAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
+    agent = DDPG_PERAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=models.action_input,
                           memory=memory, nb_steps_warmup_critic=65, nb_steps_warmup_actor=65,
-                          random_process=random_process, gamma=.99, target_model_update=1e-3, batch_size=16)
+                          random_process=random_process, gamma=.99, target_model_update=1e-3, batch_size=16, processor=processor)
 
     agent.compile([Adam(lr=1e-4), Adam(lr=1e-3)], metrics=['mae'])
 
@@ -89,7 +89,7 @@ try:
     # slows down training quite a lot. You can always safely abort the training prematurely using
     # Ctrl + C.
     train_history = agent.fit(env, nb_steps=nb_steps, visualize=False,
-                              verbose=1)
+                              verbose=1, action_repetition=1)
 
     # After training is done, we save the final weights.
     agent.save_weights('ddpg_{}_weights.h5f'.format(ENV_NAME), overwrite=True)
