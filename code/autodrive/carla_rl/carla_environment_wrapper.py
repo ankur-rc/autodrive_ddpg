@@ -50,7 +50,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		self.automatic_render = automatic_render
 		self.episode_max_time = 100000  # miliseconds for each episode
 		self.allow_braking = True
-		self.log_path = "logs"
+		self.log_path = "carla_logs.txt"
 		self.verbose = True
 		self.observation = None
 		self.num_speedup_steps = num_speedup_steps
@@ -94,7 +94,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 
 		self.early_termination_enabled = early_termination_enabled
 		if self.early_termination_enabled:
-			self.max_neg_steps = 70
+			self.max_neg_steps = 200
 			self.cur_neg_steps = 0
 			self.early_termination_punishment = 20.0
 

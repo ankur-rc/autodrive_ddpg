@@ -1,82 +1,86 @@
-
 '''
 Created Date: Saturday December 1st 2018
-Last Modified: Saturday December 1st 2018 4:48:46 pm
+Last Modified: Saturday December 1st 2018 9:52:19 pm
 Author: ankurrc
 '''
-
 import numpy as np
+import traceback as tb
 
 from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 from keras.optimizers import Adam
+from keras.callbacks import TensorBoard
 
-from rl.processors import WhiteningNormalizerProcessor
-from rl.agents import DDPGAgent
-from rl.memory import SequentialMemory
 from rl.random import OrnsteinUhlenbeckProcess
+from rl.callbacks import ModelIntervalCheckpoint, FileLogger
 
+from carla_rl import carla_config
+from carla_rl.carla_environment_wrapper import CarlaEnvironmentWrapper as CarlaEnv
+from carla_settings import get_carla_settings
 
-class MujocoProcessor(WhiteningNormalizerProcessor):
-    def process_action(self, action):
-        return np.clip(action, -1., 1.)
+from processor import MultiInputProcessor
+from models import Models
+from memory import PrioritizedExperience
+from agent import DDPG_PERAgent
 
-
-ENV_NAME = 'HalfCheetah-v1'
-gym.undo_logger_setup()
-
-
-# Get the environment and extract the number of actions.
-env = gym.make(ENV_NAME)
-env = wrappers.Monitor(env, '/tmp/{}'.format(ENV_NAME), force=True)
+ENV_NAME = "Carla"
 np.random.seed(123)
-env.seed(123)
-assert len(env.action_space.shape) == 1
-nb_actions = env.action_space.shape[0]
 
-# Next, we build a very simple model.
-actor = Sequential()
-actor.add(Flatten(input_shape=(1,) + env.observation_space.shape))
-actor.add(Dense(400))
-actor.add(Activation('relu'))
-actor.add(Dense(300))
-actor.add(Activation('relu'))
-actor.add(Dense(nb_actions))
-actor.add(Activation('tanh'))
-print(actor.summary())
+config_file = "mysettings.ini"  # file should be placed in CARLA_ROOT folder
+weights_filename = 'ddpg_' + ENV_NAME + '_{step}_weights.h5f'
+checkpoint_weights_filename = 'ddpg_' + ENV_NAME + '_weights_{step}.h5f'
+log_filename = 'ddpg_{}_log.json'.format(ENV_NAME)
 
-action_input = Input(shape=(nb_actions,), name='action_input')
-observation_input = Input(
-    shape=(1,) + env.observation_space.shape, name='observation_input')
-flattened_observation = Flatten()(observation_input)
-x = Dense(400)(flattened_observation)
-x = Activation('relu')(x)
-x = Concatenate()([x, action_input])
-x = Dense(300)(x)
-x = Activation('relu')(x)
-x = Dense(1)(x)
-x = Activation('linear')(x)
-critic = Model(inputs=[action_input, observation_input], outputs=x)
-print(critic.summary())
+nb_actions = 2
+window_size = 4
+odometry_shape = (7,)
 
-# Finally, we configure and compile our agent. You can use every built-in Keras optimizer and
-# even the metrics!
-memory = SequentialMemory(limit=100000, window_length=1)
-random_process = OrnsteinUhlenbeckProcess(
-    size=nb_actions, theta=.15, mu=0., sigma=.1)
-agent = DDPGAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=action_input,
-                  memory=memory, nb_steps_warmup_critic=1000, nb_steps_warmup_actor=1000,
-                  random_process=random_process, gamma=.99, target_model_update=1e-3,
-                  processor=MujocoProcessor())
-agent.compile([Adam(lr=1e-4), Adam(lr=1e-3)], metrics=['mae'])
+# memory params
+alpha0 = 0.6
+beta0 = 0.6
 
-# Okay, now it's time to learn something! We visualize the training here for show, but this
-# slows down training quite a lot. You can always safely abort the training prematurely using
-# Ctrl + C.
-agent.fit(env, nb_steps=1000000, visualize=False, verbose=1)
+nb_steps = 10**6
 
-# After training is done, we save the final weights.
-agent.save_weights('ddpg_{}_weights.h5f'.format(ENV_NAME), overwrite=True)
+env = CarlaEnv(is_render_enabled=False, automatic_render=False, num_speedup_steps=10, run_offscreen=False,
+               cameras=["SceneFinal"], save_screens=False, carla_settings=get_carla_settings(), carla_server_settings=config_file, early_termination_enabled=True)
 
-# Finally, evaluate our algorithm for 5 episodes.
-agent.test(env, nb_episodes=5, visualize=True, nb_max_episode_steps=200)
+models = Models(image_shape=(carla_config.render_width, carla_config.render_height, 3),
+                odometry_shape=odometry_shape, window_length=window_size, nb_actions=nb_actions)
+
+actor = models.build_actor()
+critic = models.build_critic()
+
+train_history = None
+
+try:
+    processor = MultiInputProcessor(window_length=window_size, nb_inputs=2)
+    memory = PrioritizedExperience(
+        memory_size=2**16, alpha=alpha0, beta=beta0, window_length=window_size)
+
+    random_process = OrnsteinUhlenbeckProcess(
+        size=nb_actions, theta=.15, mu=0., sigma=.2, n_steps_annealing=nb_steps)
+
+    callbacks = [ModelIntervalCheckpoint(
+        checkpoint_weights_filename, interval=2500)]
+    callbacks += [FileLogger(log_filename, interval=100)]
+    callbacks += [TensorBoard()]
+
+    agent = DDPG_PERAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=models.action_input,
+                          memory=memory, nb_steps_warmup_critic=1024, nb_steps_warmup_actor=1024,
+                          random_process=random_process, gamma=.99, target_model_update=1e-3, batch_size=16, processor=processor)
+
+    agent.compile([Adam(lr=1e-4), Adam(lr=1e-3)], metrics=['mae'])
+
+    train_history = agent.fit(env, nb_steps=nb_steps, visualize=False,
+                              verbose=1, action_repetition=1, callbacks=callbacks)
+
+    agent.save_weights('ddpg_' + ENV_NAME + '_weights.h5f', overwrite=True)
+
+    # Finally, evaluate our algorithm for 5 episodes.
+    # agent.test(env, nb_episodes=5, visualize=False, nb_max_episode_steps=200)
+except Exception as e:
+    tb.print_exc()
+    env.close_client_and_server()
+
+finally:
+    print(train_history)
