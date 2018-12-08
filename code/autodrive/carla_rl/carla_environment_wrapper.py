@@ -180,7 +180,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 
 	def check_early_stop(self, player_measurements, immediate_reward):
 
-		if player_measurements.intersection_offroad > 0.95 or \
+		if player_measurements.intersection_offroad > 0.75 or \
 		   immediate_reward < -1 or \
 		   (self.control.throttle == 0.0 and player_measurements.forward_speed < 0.1 and self.control.brake != 0.0):
 
@@ -237,9 +237,9 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		if speed_reward > 30.:
 			speed_reward = 30.
 
-		self.reward = speed_reward \
-					- (measurements.player_measurements.intersection_otherlane * 5) \
-					- (measurements.player_measurements.intersection_offroad * 5) \
+		self.reward = speed_reward - 5 \
+					- (measurements.player_measurements.intersection_otherlane * 50) \
+					- (measurements.player_measurements.intersection_offroad * 50) \
 					- is_collision * 100 \
 					- np.abs(self.control.steer) * 10
 		# Scale down the reward by a factor

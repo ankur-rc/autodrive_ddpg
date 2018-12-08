@@ -37,7 +37,7 @@ beta = 0.6
 nb_steps = 10**6
 
 env = CarlaEnv(is_render_enabled=False, automatic_render=False, num_speedup_steps=10, run_offscreen=False,
-               cameras=["SceneFinal"], save_screens=False, carla_settings=get_carla_settings(), carla_server_settings=config_file)
+               cameras=["SceneFinal"], save_screens=False, carla_settings=get_carla_settings(), carla_server_settings=config_file, early_termination_enabled=True)
 
 models = Models(image_shape=(carla_config.render_width, carla_config.render_height, 3),
                 odometry_shape=odometry_shape, window_length=window_size, nb_actions=nb_actions)
