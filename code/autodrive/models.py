@@ -8,6 +8,7 @@ from keras.layers import TimeDistributed, Conv2D, LSTM, Input, BatchNormalizatio
 from keras.initializers import RandomUniform
 from keras.models import Model
 from keras.utils import plot_model
+from keras.regularizers import l2
 
 
 class Models(object):
@@ -84,7 +85,7 @@ class Models(object):
         x = Dense(200, activation="relu",
                   name="{}_dense_2".format(layer_prefix))(x)
         out = Dense(1, activation="linear", kernel_initializer=RandomUniform(
-            minval=-3e-4, maxval=3e-4), name="{}_out".format(layer_prefix))(x)
+            minval=-3e-4, maxval=3e-4), name="{}_out".format(layer_prefix), kernel_regularizer=l2(l=0.01))(x)
 
         self.critic = Model(
             inputs=[self.ih_odo, self.ih_img, action_input], outputs=out, name="critic")

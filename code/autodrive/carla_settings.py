@@ -22,11 +22,11 @@ def get_carla_settings(settings_file=None):
         settings = CarlaSettings()
         settings.set(
             SynchronousMode=True,
-            SendNonPlayerAgentsInfo=True,
+            SendNonPlayerAgentsInfo=False,
             NumberOfVehicles=0,
             NumberOfPedestrians=0,
             # 8-14 are sunset; we want easy first
-            WeatherId=random.choice(range(0, 8)),
+            WeatherId=random.choice(range(0, 2)),
             QualityLevel='Low'
         )
         settings.randomize_seeds()
