@@ -113,8 +113,6 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		# locations indices
 		self.start_loc_idx = location_indices[0]
 		self.end_loc_idx = location_indices[1]
-		self.start_loc = None
-		self.end_loc = None
 		self.last_distance = 0
 		self.curr_distance = 0
 		self.end_loc_measurement = None
@@ -133,11 +131,12 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 
 		# get available start positions
 		positions = self.scene.player_start_spots
-		self.start_loc = positions[self.start_loc_idx].location
-		self.end_loc = positions[self.end_loc_idx].location
-		self.last_distance = self.cal_distance(self.start_loc, self.end_loc)
+		start_loc = positions[self.start_loc_idx].location
+		end_loc = positions[self.end_loc_idx].location
+
+		self.last_distance = self.cal_distance(start_loc, end_loc)
 		self.curr_distance = self.last_distance
-		self.end_loc_measurement = [self.end_loc.x, self.end_loc.y, self.end_loc.y]
+		self.end_loc_measurement = [end_loc.x, end_loc.y, end_loc.z]
 		# self.num_pos = len(positions)
 		# self.iterator_start_positions = 0
 		self.is_game_setup = self.server and self.game
