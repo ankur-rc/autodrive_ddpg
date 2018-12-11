@@ -113,6 +113,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		# locations indices
 		self.start_loc_idx = location_indices[0]
 		self.end_loc_idx = location_indices[1]
+		self.end_loc = None
 		self.last_distance = 0
 		self.curr_distance = 0
 		self.end_loc_measurement = None
@@ -133,6 +134,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		positions = self.scene.player_start_spots
 		start_loc = positions[self.start_loc_idx].location
 		end_loc = positions[self.end_loc_idx].location
+		self.end_loc = end_loc
 
 		self.last_distance = self.cal_distance(start_loc, end_loc)
 		self.curr_distance = self.last_distance
