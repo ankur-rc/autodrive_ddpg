@@ -33,7 +33,7 @@ log_filename = 'ddpg_{}_log.json'.format(ENV_NAME)
 
 nb_actions = 2
 window_size = 4
-odometry_shape = (7,)
+odometry_shape = (10,)
 
 # memory params
 alpha0 = 0.6
@@ -60,10 +60,11 @@ try:
     random_process = OrnsteinUhlenbeckProcess(
         size=nb_actions, theta=.15, mu=0., sigma=.2, n_steps_annealing=nb_steps)
 
-    callbacks = [ModelIntervalCheckpoint(
-        checkpoint_weights_filename, interval=2500)]
-    callbacks += [FileLogger(log_filename, interval=100)]
-    callbacks += [TensorBoard()]
+    callbacks = []
+    # callbacks = [ModelIntervalCheckpoint(
+    #     checkpoint_weights_filename, interval=2500)]
+    # callbacks += [FileLogger(log_filename, interval=100)]
+    # callbacks += [TensorBoard()]
 
     agent = DDPG_PERAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=models.action_input,
                           memory=memory, nb_steps_warmup_critic=1024, nb_steps_warmup_actor=1024,

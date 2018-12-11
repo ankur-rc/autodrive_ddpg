@@ -43,7 +43,8 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 					cameras=['SceneFinal'],
 					save_screens=False,
 					carla_settings=None,
-					carla_server_settings=None):
+					carla_server_settings=None,
+					location_indices=(9, 16)):
 
 		EnvironmentWrapper.__init__(self, is_render_enabled, save_screens)
 
@@ -109,6 +110,15 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			create_dir(self.images_path)
 			self.rgb_img_path = self.images_path+"/rgb/"
 
+		# locations indices
+		self.start_loc_idx = location_indices[0]
+		self.end_loc_idx = location_indices[1]
+		self.start_loc = None
+		self.end_loc = None
+		self.last_distance = 0
+		self.curr_distance = 0
+		self.end_loc_measurement = None
+
 	def setup_client_and_server(self, reconnect_client_only=False, settings=None):
 		# open the server
 		if not reconnect_client_only:
@@ -123,8 +133,13 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 
 		# get available start positions
 		positions = self.scene.player_start_spots
-		self.num_pos = len(positions)
-		self.iterator_start_positions = 0
+		self.start_loc = positions[self.start_loc_idx].location
+		self.end_loc = positions[self.end_loc_idx].location
+		self.last_distance = self.cal_distance(self.start_loc, self.end_loc)
+		self.curr_distance = self.last_distance
+		self.end_loc_measurement = [self.end_loc.x, self.end_loc.y, self.end_loc.y]
+		# self.num_pos = len(positions)
+		# self.iterator_start_positions = 0
 		self.is_game_setup = self.server and self.game
 		return
 
@@ -211,6 +226,10 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 						measurements.player_measurements.transform.location.y,
 						measurements.player_measurements.transform.location.z]
 
+		self.last_distance = self.curr_distance
+		self.curr_distance = self.cal_distance(
+			measurements.player_measurements.transform.location, self.end_loc)
+
 		is_collision = measurements.player_measurements.collision_vehicles != 0 \
 						or measurements.player_measurements.collision_pedestrians != 0 \
 						or measurements.player_measurements.collision_other != 0
@@ -233,17 +252,27 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			print("\t Collision occured")
 
 		# Reward Shaping:
-		speed_reward = self.car_speed - 1
+		speed_reward = self.car_speed
 		if speed_reward > 30.:
 			speed_reward = 30.
 
-		self.reward = speed_reward - 5 \
-					- (measurements.player_measurements.intersection_otherlane * 50) \
-					- (measurements.player_measurements.intersection_offroad * 50) \
+		self.reward = speed_reward \
+					- (measurements.player_measurements.intersection_otherlane * 15) \
+					- (measurements.player_measurements.intersection_offroad * 15) \
 					- is_collision * 100 \
-					- np.abs(self.control.steer) * 10
+					- np.abs(self.control.steer) * 10 \
+					+ (self.last_distance - self.curr_distance)*1000
 		# Scale down the reward by a factor
 		# self.reward /= 10
+
+		# print("reward: {} = {} - ({} * 15) - ({} * 15) - {} * 100 - np.abs({}) * 10 + ({} - {})*1000".format(self.reward, 
+		# 														  speed_reward, 
+		# 														  measurements.player_measurements.intersection_otherlane,
+        #                                                           measurements.player_measurements.intersection_offroad,
+        #                                                           is_collision,
+        #                                                           self.control.steer,
+        #                                         				  self.last_distance,
+        #                                                           self.curr_distance))
 
 		if self.early_termination_enabled:
 			early_done, punishment = self.check_early_stop(
@@ -253,7 +282,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			self.reward -= punishment
 
 		# update measurements
-		self.observation = np.hstack(self.location + [measurements.player_measurements.acceleration.x,
+		self.observation = np.hstack(self.location + self.end_loc_measurement + [measurements.player_measurements.acceleration.x,
                       measurements.player_measurements.acceleration.y,
 					   measurements.player_measurements.acceleration.z,
 					  measurements.player_measurements.forward_speed])
@@ -339,15 +368,15 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			elif settings == None:
 				pass  # already set during initialization
 			
-			self.iterator_start_positions += 1
-			if self.iterator_start_positions >= self.num_pos:
-				self.iterator_start_positions = 0
+			# self.iterator_start_positions += 1
+			# if self.iterator_start_positions >= self.num_pos:
+			# 	self.iterator_start_positions = 0
 
 		try:
-			self.game.start_episode(self.iterator_start_positions)
+			self.game.start_episode(self.start_loc_idx)
 		except:
 			self.game.connect()
-			self.game.start_episode(self.iterator_start_positions)
+			self.game.start_episode(self.start_loc_idx)
 
 		self.unmoved_steps = 0.0
 		if self.early_termination_enabled:
@@ -387,3 +416,6 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		if self.rgb_camera:
 			save_image(self.rgb_img_path+filename+".png",
 						self.observation['rgb_image'])
+
+	def cal_distance(self, start, end):
+		return ((end.x - start.x)**2 + (end.y - start.y)**2 + (end.z - start.z)**2)**0.5
