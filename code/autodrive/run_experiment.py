@@ -12,6 +12,7 @@ from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 from keras.optimizers import Adam
 from keras.callbacks import TensorBoard
+import keras.backend as K
 
 from rl.random import OrnsteinUhlenbeckProcess
 from rl.callbacks import ModelIntervalCheckpoint, FileLogger
@@ -46,24 +47,25 @@ beta0 = 0.6
 
 nb_steps = 10**6
 
-env = CarlaEnv(is_render_enabled=False, automatic_render=False, num_speedup_steps=10, run_offscreen=False,
-               cameras=["SceneFinal"], save_screens=False, carla_settings=get_carla_settings(), carla_server_settings=config_file, early_termination_enabled=True)
-
-models = Models(image_shape=(carla_config.render_width, carla_config.render_height, 3),
-                odometry_shape=odometry_shape, window_length=window_size, nb_actions=nb_actions)
-
-actor = models.build_actor()
-critic = models.build_critic()
-
 train_history = None
 
-callbacks = []
-callbacks = [ModelIntervalCheckpoint(
-    checkpoint_weights_filename, interval=2500)]
-callbacks += [FileLogger(log_filename, interval=100)]
-callbacks += [TensorBoard(log_dir=tb_logs)]
-
 while True:
+    env = CarlaEnv(is_render_enabled=False, automatic_render=False, num_speedup_steps=10, run_offscreen=False,
+                   cameras=["SceneFinal"], save_screens=False, carla_settings=get_carla_settings(), carla_server_settings=config_file, early_termination_enabled=True)
+
+    K.clear_session()
+
+    models = Models(image_shape=(carla_config.render_width, carla_config.render_height, 3),
+                    odometry_shape=odometry_shape, window_length=window_size, nb_actions=nb_actions)
+
+    actor = models.build_actor()
+    critic = models.build_critic()
+
+    callbacks = []
+    callbacks = [ModelIntervalCheckpoint(
+        checkpoint_weights_filename, interval=2500)]
+    callbacks += [FileLogger(log_filename, interval=100)]
+    callbacks += [TensorBoard(log_dir=tb_logs)]
 
     try:
         processor = MultiInputProcessor(window_length=window_size, nb_inputs=2)
@@ -86,9 +88,15 @@ while True:
             random_process = OrnsteinUhlenbeckProcess(
                 size=nb_actions, theta=.15, mu=0., sigma=.2, n_steps_annealing=nb_steps)
 
+        memory_filled = memory.tree.filled_size()
+        if memory_filled > 1024:
+            warmup_steps = 0
+        else:
+            warmup_steps = 1024
+
         agent = DDPG_PERAgent(nb_actions=nb_actions, actor=actor, critic=critic, critic_action_input=models.action_input,
-                              memory=memory, nb_steps_warmup_critic=1024, nb_steps_warmup_actor=1024,
-                              random_process=random_process, gamma=.99, target_model_update=1e-3, batch_size=16, processor=processor)
+                              memory=memory, nb_steps_warmup_critic=warmup_steps, nb_steps_warmup_actor=warmup_steps,
+                              random_process=random_process, gamma=.99, target_model_update=1e-3, batch_size=16, processor=processor, delta_clip=1000)
 
         agent.compile([Adam(lr=1e-4), Adam(lr=1e-3)], metrics=['mae'])
 
@@ -100,7 +108,7 @@ while True:
             print("...failed.")
 
         try:
-            print("Trying to load 'agent'", end="")
+            print("Trying to load 'agent steps'", end="")
             nb_steps_done = pickle.load(open("steps.pkl", "rb"))
             print("...done.")
         except:
@@ -111,21 +119,20 @@ while True:
 
         agent.step = nb_steps_done
 
-        try:
-            train_history = agent.fit(env, nb_steps=nb_steps-nb_steps_done, visualize=False,
-                                      verbose=1, action_repetition=1, callbacks=callbacks)
-        except KeyboardInterrupt:
-            raise Exception
+        train_history = agent.fit(env, nb_steps=nb_steps-nb_steps_done, visualize=False,
+                                  verbose=1, action_repetition=4, callbacks=callbacks)
 
         if agent.step == nb_steps:
+            print("Steps done: {}/{}".format(agent.step, nb_steps))
             break
 
-        # Finally, evaluate our algorithm for 5 episodes.
-        # agent.test(env, nb_episodes=5, visualize=False, nb_max_episode_steps=200)
-    except Exception as e:
+    except KeyboardInterrupt:
         tb.print_exc()
         env.close_client_and_server()
-
+        break
+    except:
+        tb.print_exc()
+        # env.close_client_and_server()
     finally:
         print("Saving...'weights'", end="")
         agent.save_weights('ddpg_' + ENV_NAME + '_weights.h5f', overwrite=True)
@@ -134,5 +141,6 @@ while True:
         print("..'OU process'..", end="")
         pickle.dump(random_process, open("random_process.pkl", "wb"))
         print("..'steps'..", end="")
-        pickle.dump(nb_steps_done, open("steps.pkl", "wb"))
+        pickle.dump(agent.step, open("steps.pkl", "wb"))
         print("..done")
+        # env.close_client_and_server()
