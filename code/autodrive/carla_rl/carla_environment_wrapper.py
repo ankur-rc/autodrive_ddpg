@@ -95,7 +95,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 
 		self.early_termination_enabled = early_termination_enabled
 		if self.early_termination_enabled:
-			self.max_neg_steps = 200
+			self.max_neg_steps = 70
 			self.cur_neg_steps = 0
 			self.early_termination_punishment = 20.0
 

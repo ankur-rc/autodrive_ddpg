@@ -137,7 +137,7 @@ class Agent(object):
                     self.reset_states()
                     # changed here ~
                     observation = deepcopy(
-                        env.reset(settings=get_carla_settings()))
+                        env.reset())
                     if self.processor is not None:
                         observation = self.processor.process_observation(
                             observation)
@@ -248,6 +248,7 @@ class Agent(object):
             did_abort = True
             # changed here ~
             env.close_client_and_server()
+
         callbacks.on_train_end(logs={'did_abort': did_abort})
         self._on_train_end()
 
