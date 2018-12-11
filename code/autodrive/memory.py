@@ -158,9 +158,11 @@ class PrioritizedExperience(Memory):
 
             state0 = []
             state1 = []
+            reward = 0
 
             for i in range(len(self.recent_experiences) - 1):
                 state0.append(self.recent_experiences[i][0])
+                reward += self.recent_experiences[i][2]
             while len(state0) < self.window_length:
                 state0.insert(0, zeroed_observation(observation))
 
@@ -168,11 +170,9 @@ class PrioritizedExperience(Memory):
             state1.append(observation)
 
             if len(self.recent_experiences) < 2:
-                reward = 0
                 act = action
                 terminal = False
             else:
-                reward = self.recent_experiences[-2][2]
                 act = self.recent_experiences[-2][1]
                 terminal = self.recent_experiences[-2][3]
 
