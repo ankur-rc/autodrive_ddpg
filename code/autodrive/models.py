@@ -75,7 +75,7 @@ class Models(object):
         self.actor = Model(
             inputs=[self.ih_odo, self.ih_img], outputs=out, name="actor")
         print(self.actor.summary())
-        # plot_model(self.actor, to_file="imgs/actor.png", show_shapes=True)
+        plot_model(self.actor, to_file="imgs/actor.png", show_shapes=True)
 
         return self.actor
 
@@ -98,7 +98,7 @@ class Models(object):
         self.critic = Model(
             inputs=[self.ih_odo, self.ih_img, action_input], outputs=out, name="critic")
         print(self.critic.summary())
-        # plot_model(self.critic, to_file="imgs/critic.png", show_shapes=True)
+        plot_model(self.critic, to_file="imgs/critic.png", show_shapes=True)
 
         return self.critic
 
