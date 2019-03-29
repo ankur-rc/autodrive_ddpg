@@ -260,12 +260,12 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		if speed_reward > 30.:
 			speed_reward = 30.
 
-		self.reward = speed_reward * 5 \
-					- (measurements.player_measurements.intersection_otherlane * 1.5) \
-					- (measurements.player_measurements.intersection_offroad * 1.5) \
+		self.reward = speed_reward * 1 \
+					- (measurements.player_measurements.intersection_otherlane * 2) \
+					- (measurements.player_measurements.intersection_offroad * 2) \
 					- is_collision * 10 \
-					- np.abs(self.control.steer) * 1.5 \
-					+ (self.last_distance - self.curr_distance)*10
+					- np.abs(self.control.steer) * 3 \
+					# + (self.last_distance - self.curr_distance)*10
 		# Scale down the reward by a factor
 		# self.reward /= 10
 
