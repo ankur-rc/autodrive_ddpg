@@ -147,3 +147,4 @@ while True:
         pickle.dump(agent.step, open("steps.pkl", "wb"))
         print("..done")
         # env.close_client_and_server()
+        exit(1)

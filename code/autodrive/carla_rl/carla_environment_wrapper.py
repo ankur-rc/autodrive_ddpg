@@ -286,10 +286,12 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			self.reward -= punishment
 
 		# update measurements
-		self.observation = np.hstack(self.location + self.end_loc_measurement + [measurements.player_measurements.acceleration.x,
+		observation_array = [measurements.player_measurements.acceleration.x,
                       measurements.player_measurements.acceleration.y,
 					   measurements.player_measurements.acceleration.z,
-					  measurements.player_measurements.forward_speed])
+					  measurements.player_measurements.forward_speed/self.max_speed]
+		# observation_array += self.location + self.end_loc_measurement
+		self.observation = np.hstack(observation_array)
 
 		if self.rgb_camera:
 			img_data = sensor_data[self.rgb_camera_name].data/255.
