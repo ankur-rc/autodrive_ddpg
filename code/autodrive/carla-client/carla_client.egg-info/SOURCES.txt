@@ -1,4 +1,5 @@
 MANIFEST.in
+setup.py
 carla/__init__.py
 carla/carla_server_pb2.py
 carla/client.py

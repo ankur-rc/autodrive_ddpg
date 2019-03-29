@@ -26,8 +26,8 @@ def get_carla_settings(settings_file=None):
             NumberOfVehicles=0,
             NumberOfPedestrians=0,
             # 8-14 are sunset; we want easy first
-            WeatherId=random.choice(range(0, 2)),
-            QualityLevel='Low'
+            WeatherId=random.choice(range(0, 11)),
+            QualityLevel='Epic'
         )
         settings.randomize_seeds()
 

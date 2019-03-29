@@ -84,18 +84,18 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			    "Please load a CarlaSettings object or provide a path to a settings file.")
 
 		self.car_speed = 0.
-		self.max_speed = 35.
+		self.max_speed = 10. #m/s
 		# Will be true only when setup_client_and_server() is called, either explicitly, or by reset()
 		self.is_game_setup = False
 
 		# measurements
 		self.autopilot = None
-		self.kill_if_unmoved_for_n_steps = 60
+		self.kill_if_unmoved_for_n_steps = 50*4
 		self.unmoved_steps = 0.0
 
 		self.early_termination_enabled = early_termination_enabled
 		if self.early_termination_enabled:
-			self.max_neg_steps = 70
+			self.max_neg_steps = 100*4
 			self.cur_neg_steps = 0
 			self.early_termination_punishment = 20.0
 
@@ -196,17 +196,19 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 
 	def check_early_stop(self, player_measurements, immediate_reward):
 
-		if player_measurements.intersection_offroad > 0.75 or \
-		   immediate_reward < -1 or \
-		   (self.control.throttle == 0.0 and player_measurements.forward_speed < 0.1 and self.control.brake != 0.0):
+		# if player_measurements.intersection_offroad > 0.75 or \
+		if immediate_reward < 0 :
+		#    or \
+		#    (self.control.throttle == 0.0 and player_measurements.forward_speed < 0.1 and self.control.brake != 0.0):
 
 			self.cur_neg_steps += 1
+			# print("updated neg steps:{}".format(self.cur_neg_steps))
 			early_done = (self.cur_neg_steps > self.max_neg_steps)
 			if early_done:
-				print("\t Early kill the mad car")
+				print("\t Early terminate. neg steps:{}, unmoved:{}".format(self.cur_neg_steps, self.unmoved_steps))
 				return early_done, self.early_termination_punishment
 		else:
-			self.cur_neg_steps /= 2  # Exponentially decay
+			self.cur_neg_steps = self.cur_neg_steps - 1 if self.cur_neg_steps > 0 else 0  # decay
 		return False, 0.0
 
 	def _update_state(self):
@@ -240,33 +242,34 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		# Recognize that as a collision
 		self.car_speed = measurements.player_measurements.forward_speed
 
-		if self.control.throttle > 0. and self.car_speed < 0.75 and self.control.brake >= 0. and self.is_game_ready_for_input:
+		if self.control.throttle > 0.25 and self.car_speed < 0.7 and self.is_game_ready_for_input:
 			self.unmoved_steps += 1
+			# print("updated unmoved(carla bug) steps:{}".format(self.unmoved_steps), self.control.throttle, self.car_speed, self.is_game_ready_for_input)
 			if self.unmoved_steps > self.kill_if_unmoved_for_n_steps:
 				is_collision = True
-				print("\t Car stuck somewhere.")
-		elif self.unmoved_steps > 0:
-			# decay slowly, since it may be stuck and not accelerate few times
-			self.unmoved_steps -= 0.50
+				print("\t Car stuck somewhere. neg steps:{}, unmoved:{}".format(self.cur_neg_steps, self.unmoved_steps))
+		# elif self.unmoved_steps > 0:
+		# 	# decay slowly, since it may be stuck and not accelerate few times
+		# 	self.unmoved_steps -= 0.50
 
 		if is_collision:
-			print("\t Collision occured")
+			print("\t Collision occured.")
 
 		# Reward Shaping:
 		speed_reward = self.car_speed
 		if speed_reward > 30.:
 			speed_reward = 30.
 
-		self.reward = speed_reward \
-					- (measurements.player_measurements.intersection_otherlane * 15) \
-					- (measurements.player_measurements.intersection_offroad * 15) \
-					- is_collision * 100 \
-					- np.abs(self.control.steer) * 10 \
-					+ (self.last_distance - self.curr_distance)*1000
+		self.reward = speed_reward * 5 \
+					- (measurements.player_measurements.intersection_otherlane * 1.5) \
+					- (measurements.player_measurements.intersection_offroad * 1.5) \
+					- is_collision * 10 \
+					- np.abs(self.control.steer) * 1.5 \
+					+ (self.last_distance - self.curr_distance)*10
 		# Scale down the reward by a factor
 		# self.reward /= 10
 
-		# print("reward: {} = {} - ({} * 15) - ({} * 15) - {} * 100 - np.abs({}) * 10 + ({} - {})*1000".format(self.reward, 
+		# print("reward: {} = {} - ({} * 1.5) - ({} * 1.5) - {} * 10 - np.abs({}) * 10 + ({} - {})*10".format(self.reward, 
 		# 														  speed_reward, 
 		# 														  measurements.player_measurements.intersection_otherlane,
         #                                                           measurements.player_measurements.intersection_offroad,
@@ -300,8 +303,8 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		self.autopilot = measurements.player_measurements.autopilot_control
 
 		if (measurements.game_timestamp >= self.episode_max_time) or is_collision:
-			# screen.success('EPISODE IS DONE. GameTime: {}, Collision: {}'.format(str(measurements.game_timestamp),
-			#																	  str(is_collision)))
+			# print('EPISODE IS DONE. GameTime: {}, Collision: {}'.format(str(measurements.game_timestamp),
+			# 																	  str(is_collision)))
 			self.done = True
 
 	def _take_action(self, action):
@@ -317,8 +320,6 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		self.control.throttle = np.clip(action[1], 0, 1)
 		self.control.brake = np.abs(np.clip(action[1], -1, 0))
 
-		if not self.allow_braking:
-			self.control.brake = 0
 
 		self.control.hand_brake = False
 		self.control.reverse = False
@@ -327,8 +328,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		if not self.allow_braking or self.control.brake < 0.1 or self.control.throttle > self.control.brake:
 			self.control.brake = 0
 
-		# prevent over speeding (first convert from m/s to km/h)
-		if self.car_speed * 3.6 > self.max_speed and self.control.brake == 0:
+		if self.car_speed > self.max_speed and self.control.brake == 0:
 			self.control.throttle = 0.0
 
 		controls_sent = False
@@ -354,8 +354,8 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		self.is_game_ready_for_input = False
 		if not self.is_game_setup:
 			self.setup_client_and_server()
-			if self.is_render_enabled:
-				self.init_renderer()
+			# if self.is_render_enabled:
+			# 	self.init_renderer()
 		else:
 			# get settings. Only needed if we want random rollouts
 			if type(settings) == str:
@@ -380,9 +380,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 			self.game.start_episode(self.start_loc_idx)
 
 		self.unmoved_steps = 0.0
-		if self.early_termination_enabled:
-			self.cur_neg_steps = 0
-
+		self.cur_neg_steps = 0
 		self.car_speed = 0
 		# start the game with some initial speed
 		observation = None

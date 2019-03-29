@@ -8,6 +8,9 @@ import traceback as tb
 import pickle
 import time
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = '-1' 
+
 from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 from keras.optimizers import Adam
@@ -50,7 +53,7 @@ nb_steps = 10**6
 train_history = None
 
 while True:
-    env = CarlaEnv(is_render_enabled=False, automatic_render=False, num_speedup_steps=10, run_offscreen=False,
+    env = CarlaEnv(is_render_enabled=False, automatic_render=False, num_speedup_steps=1, run_offscreen=False,
                    cameras=["SceneFinal"], save_screens=False, carla_settings=get_carla_settings(), carla_server_settings=config_file, early_termination_enabled=True)
 
     K.clear_session()
@@ -77,7 +80,7 @@ while True:
         except:
             print("...failed.")
             memory = PrioritizedExperience(
-                memory_size=2**16, alpha=alpha0, beta=beta0, window_length=window_size)
+                memory_size=2**14, alpha=alpha0, beta=beta0, window_length=window_size)
 
         try:
             print("Trying to load 'OU process'", end="")
