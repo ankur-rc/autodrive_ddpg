@@ -294,7 +294,7 @@ class CarlaEnvironmentWrapper(EnvironmentWrapper):
 		self.observation = np.hstack(observation_array)
 
 		if self.rgb_camera:
-			img_data = sensor_data[self.rgb_camera_name].data/255.
+			img_data = sensor_data[self.rgb_camera_name].data
 			self.observation = [self.observation, img_data]
 		
 		# self.counter +=1

@@ -15,15 +15,15 @@ class MultiInputProcessor(Processor):
         self.window_length = window_length
         self.nb_inputs = nb_inputs
 
-    # def process_observation(self, observation):
-    #     # convert image to numoy array and normalise
-    #     observation[1] = to_rgb_array(observation[1])
-    #     observation[1] /= 255.
+    def process_observation(self, observation):
+        # convert image to numoy array and normalise
+        observation[1] = to_rgb_array(observation[1])
+        observation[1] /= 255.
 
-    #     print("obsv. min and max:", np.min(
-    #         observation[1]), np.max(observation[1]))
+        # print("obsv. min and max:", np.min(
+        #     observation[1]), np.max(observation[1]))
 
-    #     return observation
+        return observation
 
     def process_state_batch(self, batch):
         # creates [[], []]; after 1:- [[o_0_0, o_1_0], [o_0_1, o_1_1]]; after 2:- [[o_0_0, o_1_0, o_2_0], [o_0_1, o_1_1, o_2_1]]...
